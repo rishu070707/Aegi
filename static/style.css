@@ -1,0 +1,214 @@
+:root {
+    --bg-dark: #0f172a;
+    --glass-bg: rgba(30, 41, 59, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --primary-color: #38bdf8;
+    --accent-color: #f43f5e;
+    --text-light: #f8fafc;
+    --text-muted: #94a3b8;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Outfit', sans-serif;
+}
+
+body {
+    background: radial-gradient(circle at top right, #1e1b4b, var(--bg-dark));
+    color: var(--text-light);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+}
+
+.glass-container {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 1200px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+header {
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.highlight {
+    color: var(--primary-color);
+}
+
+header p {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    font-weight: 300;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+}
+
+.video-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 960px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 0 0 2px var(--glass-border), 0 20px 40px rgba(0,0,0,0.6);
+    background: #000;
+}
+
+.video-feed {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Simulated grid overlay for tactical feel */
+.overlay-grid {
+    position: absolute;
+    inset: 0;
+    background-size: 40px 40px;
+    background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    pointer-events: none;
+}
+
+.status-badge {
+    position: absolute;
+    top: 1.5rem;
+    left: 1.5rem;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 10;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.pulse {
+    width: 10px;
+    height: 10px;
+    background-color: var(--accent-color);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent-color);
+    animation: pulse-anim 1.5s infinite;
+}
+
+@keyframes pulse-anim {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(244, 63, 94, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+}
+
+.stats-panel {
+    display: flex;
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 960px;
+}
+
+.stat-card {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.stat-card h3 {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+footer {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+button {
+    padding: 0.75rem 2rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: var(--bg-dark);
+}
+
+.btn-primary:hover {
+    background: #7dd3fc;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--text-light);
+    border: 1px solid var(--glass-border);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255,255,255,0.3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stats-panel {
+        flex-direction: column;
+    }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+}

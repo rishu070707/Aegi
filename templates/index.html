@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aegis AI - Weapon Detection Tracking</title>
+    <meta name="description" content="Real-time YOLOv8s weapon and object detection surveillance system.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Extra styles for the logs modal and alerts */
+        .alert-active {
+            box-shadow: 0 0 40px rgba(244, 63, 94, 0.8) !important;
+            border-color: rgba(244, 63, 94, 0.9) !important;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 100; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0,0,0,0.7); 
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: var(--glass-bg);
+            margin: 10% auto; 
+            padding: 2rem;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            width: 80%;
+            max-width: 600px;
+            color: var(--text-light);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .close-btn {
+            color: var(--text-muted);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-btn:hover {
+            color: var(--accent-color);
+        }
+
+        #logs-container {
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 8px 0;
+            color: var(--primary-color);
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-container" id="main-container">
+        <header>
+            <h1 id="main-heading"><span class="highlight">Aegis</span> AI Surveillance</h1>
+            <p>Real-Time Weapon Detection & Object Tracking via YOLOv8</p>
+        </header>
+
+        <main>
+            <div class="video-wrapper" id="video-wrapper">
+                <div class="status-badge" id="live-status"><span class="pulse"></span> LIVE DETECT</div>
+                <!-- Flask MJPEG Stream Route -->
+                <img src="{{ url_for('video_feed') }}" alt="Live surveillance stream with YOLOv8 detection boxes" class="video-feed" id="surveillance-feed" />
+                <div class="overlay-grid"></div>
+            </div>
+
+            <div class="stats-panel">
+                <div class="stat-card" id="card-accuracy">
+                    <h3>mAP@50</h3>
+                    <p class="stat-value">92%</p>
+                </div>
+                <div class="stat-card" id="card-model">
+                    <h3>Active Model</h3>
+                    <p class="stat-value">YOLOv8l</p>
+                </div>
+                <div class="stat-card" id="card-performance">
+                    <h3>Peak FPS</h3>
+                    <p class="stat-value">~47 FPS</p>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <button class="btn-primary" id="btn-settings">System Settings</button>
+            <button class="btn-secondary" id="btn-logs">View Detection Logs</button>
+        </footer>
+    </div>
+
+    <!-- The Logs Modal -->
+    <div id="logsModal" class="modal">
+      <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2>🚨 Weapon Detection Logs</h2>
+        <div id="logs-container">
+            <div class="log-entry">Waiting for detections...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Script to poll status and handle logs -->
+    <script>
+        const modal = document.getElementById("logsModal");
+        const btnLogs = document.getElementById("btn-logs");
+        const spanClose = document.getElementsByClassName("close-btn")[0];
+        const logsContainer = document.getElementById("logs-container");
+        const videoWrapper = document.getElementById("video-wrapper");
+        
+        // Open the modal
+        btnLogs.onclick = function() {
+            modal.style.display = "block";
+        }
+        
+        // Close the modal
+        spanClose.onclick = function() {
+            modal.style.display = "none";
+        }
+        
+        // Close modal if user clicks outside of it
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // Notification System via Polling
+        let notificationAudio = new Audio('https://www.soundjay.com/buttons/sounds/beep-01a.mp3');
+        let justAlerted = false;
+
+        setInterval(() => {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Update Web UI Alert State
+                    if (data.weapon_detected) {
+                        videoWrapper.classList.add('alert-active');
+                        if (!justAlerted) {
+                            // Play sound or browser notification here if permitted
+                            notificationAudio.play().catch(e => console.log('Audio blocked by browser.'));
+                            if (Notification.permission === "granted") {
+                                new Notification("⚠️ WEAPON DETECTED - Check Camera Feed!");
+                            } else if (Notification.permission !== "denied") {
+                                Notification.requestPermission();
+                            }
+                            justAlerted = true;
+                        }
+                    } else {
+                        videoWrapper.classList.remove('alert-active');
+                        justAlerted = false;
+                    }
+
+                    // Populate Logs
+                    if (data.logs && data.logs.length > 0) {
+                        logsContainer.innerHTML = '';
+                        data.logs.forEach(msg => {
+                            const div = document.createElement("div");
+                            div.className = "log-entry";
+                            // Highlight weapon alerts in red inside log
+                            div.style.color = msg.includes("WEAPON") ? "var(--accent-color)" : "inherit";
+                            div.textContent = msg;
+                            logsContainer.appendChild(div);
+                        });
+                    }
+                })
+                .catch(err => console.error("Error fetching status:", err));
+        }, 1000); // Check every second
+    </script>
+</body>
+</html>
