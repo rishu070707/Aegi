@@ -99,3 +99,5 @@ Our final model (**YOLOv8s**) boasts the following metrics:
 | **mAP@50** | **92%** |
 | **mAP@50:95** | 71% |
 | **FPS** | **47.3** |
+
+# Aegi
