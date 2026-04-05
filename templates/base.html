@@ -71,28 +71,28 @@
 </header>
 
 <!-- Sidebar -->
-<aside class="fixed left-0 top-0 h-full w-64 z-40 bg-slate-900 flex flex-col pt-20 pb-6 border-r border-white/5">
-  <div class="px-6 mb-8">
-    <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-sm">
-      <div class="w-9 h-9 bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center rounded-sm">
-        <span class="material-symbols-outlined text-emerald-500" style="font-variation-settings:'FILL' 1;">security</span>
+<aside class="fixed left-0 top-0 h-full w-72 z-40 bg-slate-900/95 backdrop-blur-xl flex flex-col pt-24 pb-8 border-r border-white/5 shadow-2xl">
+  <div class="px-8 mb-12">
+    <div class="flex items-center gap-4 p-4 bg-slate-950/50 rounded-sm border border-emerald-500/10">
+      <div class="w-11 h-11 bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center rounded-sm shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+        <span class="material-symbols-outlined text-emerald-500 text-xl" style="font-variation-settings:'FILL' 1;">security</span>
       </div>
       <div>
-        <p class="text-emerald-500 font-black font-headline text-[10px] tracking-widest uppercase">SENTINEL ALPHA</p>
-        <p class="text-slate-500 text-[9px] font-mono">v4.2.0-STABLE</p>
+        <p class="text-emerald-500 font-black font-headline text-[12px] tracking-[0.2em] uppercase leading-tight">SENTINEL ALPHA</p>
+        <p class="text-slate-500 text-[10px] font-mono tracking-widest mt-0.5">SYST_V4.2_STABLE</p>
       </div>
     </div>
   </div>
-  <nav class="flex-1 space-y-0.5">
-    {% set nav=[('grid_view','DASHBOARD','/'),('videocam','CAMERAS','/camera'),('sensors','SENSORS','#'),('fingerprint','BIOMETRICS','#'),('list_alt','LOGS','/logs'),('movie','VIDEO','/video'),('lan','NETWORK','#')] %}
+  <nav class="flex-1 space-y-1">
+    {% set nav=[('videocam','Live feeds','/live'),('image','Analytics','/camera'),('list_alt','Archive','/logs'),('movie','Video','/video')] %}
     {% for icon,label,href in nav %}
-    <a href="{{ href }}" class="flex items-center gap-4 px-6 py-3 font-headline text-xs font-bold tracking-widest transition-all
+    <a href="{{ href }}" class="flex items-center gap-5 px-8 py-4 font-headline text-sm font-black tracking-[0.2em] opacity-80 uppercase transition-all duration-300
       {% if (href=='/' and active=='dashboard') or (href!='/' and href in request.path) %}
-        text-emerald-400 bg-emerald-400/10 border-r-4 border-emerald-400
+        text-emerald-400 bg-emerald-400/10 border-r-4 border-emerald-400 opacity-100 shadow-[inset_-10px_0_20px_rgba(16,185,129,0.05)]
       {% else %}
-        text-slate-500 hover:text-slate-300 hover:bg-slate-800/40
+        text-slate-400 hover:text-emerald-400 hover:bg-slate-800/60
       {% endif %}">
-      <span class="material-symbols-outlined text-sm">{{ icon }}</span> {{ label }}
+      <span class="material-symbols-outlined text-lg">{{ icon }}</span> {{ label }}
     </a>
     {% endfor %}
   </nav>
@@ -114,16 +114,16 @@
 </aside>
 
 <!-- Page Content -->
-<main class="pl-64 pt-16 min-h-screen">
+<main class="pl-72 pt-16 min-h-screen">
   {% block content %}{% endblock %}
 </main>
 
 <!-- Status Bar -->
-<footer class="fixed bottom-0 left-64 right-0 h-8 bg-slate-950 border-t border-white/5 z-30 flex items-center justify-between px-6">
+<footer class="fixed bottom-0 left-72 right-0 h-8 bg-slate-950 border-t border-white/5 z-30 flex items-center justify-between px-6">
   <div class="flex items-center gap-6">
     <div class="flex items-center gap-2">
       <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-      <span id="sysStatusBar" class="text-[10px] font-mono text-emerald-500 uppercase tracking-widest">System Online</span>
+      <span id="sysStatusBar" class="text-[10px] font-mono text-emerald-500 tracking-widest">System online</span>
     </div>
     <span class="text-[10px] font-mono text-slate-500 uppercase tracking-widest">AVG LATENCY: <span id="barLatency">—</span> ms</span>
   </div>

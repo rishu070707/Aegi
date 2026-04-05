@@ -5,13 +5,14 @@ Full pipeline: CLAHE → YOLOv8s → Temporal Filter → EMA → Scene Filter �
 """
 
 import os
-import io
 import cv2
 import copy
 import uuid
 import json
 import time
 import base64
+import shutil
+import subprocess
 import threading
 import traceback
 import numpy as np
@@ -80,13 +81,24 @@ webcam_active = False
 stream_thread_handle = None
 
 
-def _run_full_pipeline(frame: np.ndarray, temp_filter=None) -> tuple:
+def _run_full_pipeline(
+    frame: np.ndarray,
+    temp_filter=None,
+    ignore_roi=False,
+    bypass_scene=False,
+    inference_imgsz: int | None = None,
+) -> tuple:
     """
-    Execute the full 10-step detection pipeline on a single frame.
+    Execute the full detection pipeline on a single frame.
     Returns (annotated_frame, detections_list, latency_ms)
+
+    bypass_scene: for image / file video analysis — do not penalize detections
+    when no person is in frame (improves gun detection on still photos).
     """
     # 1. Detect (includes CLAHE preprocessing)
-    raw_detections, latency = detector.detect(frame)
+    # Fixed imgsz for uploads: live edge mode may set singleton input_size to 416, which
+    # breaks this HF checkpoint on many stills; uploads always use full resolution.
+    raw_detections, latency = detector.detect(frame, imgsz=inference_imgsz)
 
     # 2. Temporal Consistency Filter (if provided)
     if temp_filter is not None:
@@ -96,12 +108,15 @@ def _run_full_pipeline(frame: np.ndarray, temp_filter=None) -> tuple:
     for det in raw_detections:
         det["confidence"] = stabilizer.smooth(det["class_name"], det["confidence"])
 
-    # 4. Scene-Aware Filter (person co-occurrence)
-    filtered = scene_filter.filter(raw_detections, frame)
+    # 4. Scene-Aware Filter (skipped for analytics uploads)
+    if bypass_scene:
+        filtered = raw_detections
+    else:
+        filtered = scene_filter.filter(raw_detections, frame)
 
     # 5. ROI FILTERING + Risk Scoring
     # If ROI zones are defined: ONLY keep detections whose centroid is inside a zone
-    roi_zones_active = len(roi_monitor.get_roi()) > 0
+    roi_zones_active = len(roi_monitor.get_roi()) > 0 and not ignore_roi
     annotated_dets = []
     for det in filtered:
         in_roi = roi_monitor.check_roi(det["bbox"], frame.shape)
@@ -129,15 +144,19 @@ def _run_full_pipeline(frame: np.ndarray, temp_filter=None) -> tuple:
 
         annotated_dets.append(det)
 
-    # 7. Edge Mode -- only adapts input resolution, NEVER swaps model file
-    edge_cfg = edge_mgr.check_and_adapt(latency)
-    if edge_cfg.get("mode_changed") and edge_cfg.get("model_variant") is not None:
-        detector.switch_model(edge_cfg["model_variant"], edge_cfg["input_size"])
-    elif edge_cfg.get("mode_changed"):
-        detector.input_size = edge_cfg["input_size"]
+    # 7. Edge Mode — skip when serving fixed-res analytics (avoid skewing live tuning)
+    if inference_imgsz is None:
+        edge_cfg = edge_mgr.check_and_adapt(latency)
+        if not ignore_roi:
+            if edge_cfg.get("mode_changed") and edge_cfg.get("model_variant") is not None:
+                detector.switch_model(edge_cfg["model_variant"], edge_cfg["input_size"])
+            elif edge_cfg.get("mode_changed"):
+                detector.input_size = edge_cfg["input_size"]
 
     # 8. Draw ROI overlay then detections
-    annotated_frame = roi_monitor.draw_roi(frame)
+    annotated_frame = frame.copy()
+    if not ignore_roi:
+        annotated_frame = roi_monitor.draw_roi(annotated_frame)
     annotated_frame = detector.draw_detections(annotated_frame, annotated_dets)
 
     return annotated_frame, annotated_dets, latency
@@ -215,10 +234,14 @@ def generate_stream():
             cv2.putText(display, "Waiting for camera...", (140, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (100, 100, 255), 2)
 
         # Draw detections on display frame
-        display = roi_monitor.draw_roi(display)
-        display = detector.draw_detections(display, boxes)
+        try:
+            display = roi_monitor.draw_roi(display)
+            display = detector.draw_detections(display, boxes)
+        except Exception as e:
+            print(f"[GenerateStream] Drawing error: {e}")
 
-        ret, buffer = cv2.imencode(".jpg", display, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        # Optimize: lower quality for stability (~75%)
+        ret, buffer = cv2.imencode(".jpg", display, [cv2.IMWRITE_JPEG_QUALITY, 75])
         if ret:
             yield (
                 b"--frame\r\n"
@@ -226,7 +249,7 @@ def generate_stream():
                 + buffer.tobytes()
                 + b"\r\n"
             )
-        time.sleep(0.033)
+        time.sleep(0.04) # Stable ~25 FPS
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -278,10 +301,19 @@ def detect_image():
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
         if frame is None:
-            return jsonify({"error": "Cannot decode image"}), 400
+            return jsonify(
+                {
+                    "error": "Cannot decode image. Use JPG, PNG, or WebP (HEIC/HEIF often unsupported).",
+                }
+            ), 400
 
-        # Full pipeline (no temporal filter for single image)
-        annotated, detections, latency = _run_full_pipeline(frame)
+        # Full pipeline: no temporal, no ROI gate, no scene filter (still photos)
+        annotated, detections, latency = _run_full_pipeline(
+            frame,
+            ignore_roi=True,
+            bypass_scene=True,
+            inference_imgsz=640,
+        )
 
         # Encode annotated image to base64
         _, buffer = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 90])
@@ -292,6 +324,7 @@ def detect_image():
         for d in detections:
             clean_dets.append({
                 "class_name":    d.get("class_name"),
+                "model_class":   d.get("coco_name"),
                 "confidence":    round(float(d.get("confidence", 0)), 3),
                 "bbox":          [int(v) for v in d.get("bbox", [])],
                 "risk_score":    round(float(d.get("risk_score", 0)), 3),
@@ -312,11 +345,39 @@ def detect_image():
         return jsonify({"error": str(e)}), 500
 
 
+def _h264_reencode_for_browser(src_path: str, dst_path: str) -> bool:
+    """Re-encode OpenCV mp4v output to H.264 for Chrome / Edge playback."""
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        return False
+    try:
+        subprocess.run(
+            [
+                ffmpeg,
+                "-y",
+                "-i",
+                src_path,
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+                dst_path,
+            ],
+            check=True,
+            capture_output=True,
+            timeout=3600,
+        )
+        return True
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        return False
+
+
 @app.route("/detect/video", methods=["POST"])
 def detect_video():
     """
     Accept a video file, process all frames, return annotated video as download.
-    Streams progress via Server-Sent Events is out of scope here; we just process.
     """
     if "video" not in request.files:
         return jsonify({"error": "No video file provided"}), 400
@@ -326,26 +387,48 @@ def detect_video():
         return jsonify({"error": "Empty filename"}), 400
 
     try:
+        job = uuid.uuid4().hex[:12]
         ext = os.path.splitext(file.filename)[1].lower() or ".mp4"
-        in_path = os.path.join(EVIDENCE_DIR, f"upload_{SESSION_ID}{ext}")
-        out_path = os.path.join(EVIDENCE_DIR, f"output_{SESSION_ID}.mp4")
+        in_path = os.path.join(EVIDENCE_DIR, f"upload_{job}{ext}")
+        raw_out = os.path.join(EVIDENCE_DIR, f"output_{job}_raw.mp4")
+        out_path = os.path.join(EVIDENCE_DIR, f"output_{job}.mp4")
         file.save(in_path)
 
         cap = cv2.VideoCapture(in_path)
         if not cap.isOpened():
+            try:
+                os.remove(in_path)
+            except OSError:
+                pass
             return jsonify({"error": "Cannot open video file"}), 400
 
         fps = cap.get(cv2.CAP_PROP_FPS) or 25
+        if fps <= 1 or fps > 120:
+            fps = 25
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if w <= 0 or h <= 0:
+            cap.release()
+            try:
+                os.remove(in_path)
+            except OSError:
+                pass
+            return jsonify({"error": "Invalid video dimensions"}), 400
 
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(out_path, fourcc, fps, (w, h))
+        out = cv2.VideoWriter(raw_out, fourcc, fps, (w, h))
+        if not out.isOpened():
+            cap.release()
+            try:
+                os.remove(in_path)
+            except OSError:
+                pass
+            return jsonify({"error": "Cannot create output video"}), 500
 
-        # Strict temporal filter for video: window=7, min_hits=3, conf=0.45
-        # Suppresses single-frame false positives (cars, objects as knife etc.)
-        local_temporal = TemporalConsistencyFilter(window_size=7, min_hits=3, min_confidence=0.45)
+        # Light temporal smoothing; per-frame model output still visible quickly
+        local_temporal = TemporalConsistencyFilter(
+            window_size=2, min_hits=1, min_confidence=0.28
+        )
         frame_idx = 0
         all_detections = []
 
@@ -353,31 +436,59 @@ def detect_video():
             ret, frame = cap.read()
             if not ret:
                 break
-            annotated, dets, _ = _run_full_pipeline(frame, temp_filter=local_temporal)
+            annotated, dets, _ = _run_full_pipeline(
+                frame,
+                temp_filter=local_temporal,
+                bypass_scene=True,
+                inference_imgsz=640,
+            )
             out.write(annotated)
             for d in dets:
-                all_detections.append({
-                    "frame": frame_idx,
-                    "class_name": d.get("class_name"),
-                    "confidence": round(float(d.get("confidence", 0)), 3),
-                    "risk_level": d.get("risk_level", "Low"),
-                })
+                all_detections.append(
+                    {
+                        "frame": frame_idx,
+                        "class_name": d.get("class_name"),
+                        "confidence": round(float(d.get("confidence", 0)), 3),
+                        "risk_level": d.get("risk_level", "Low"),
+                    }
+                )
             frame_idx += 1
 
         cap.release()
         out.release()
+
         try:
             os.remove(in_path)
-        except Exception:
+        except OSError:
             pass
 
+        if _h264_reencode_for_browser(raw_out, out_path):
+            try:
+                os.remove(raw_out)
+            except OSError:
+                pass
+        else:
+            if os.path.exists(out_path):
+                try:
+                    os.remove(out_path)
+                except OSError:
+                    pass
+            os.rename(raw_out, out_path)
+
         out_filename = os.path.basename(out_path)
-        return jsonify({
-            "download_url": f"/evidence/{out_filename}",
-            "frames_processed": frame_idx,
-            "total_detections": len(all_detections),
-            "detections_summary": all_detections[:100],  # cap response size
-        })
+        return jsonify(
+            {
+                "download_url": f"/evidence/{out_filename}",
+                "frames_processed": frame_idx,
+                "total_detections": len(all_detections),
+                "detections_summary": all_detections[:100],
+                "codec_note": (
+                    "h264"
+                    if shutil.which("ffmpeg")
+                    else "mp4v (install ffmpeg for best browser playback)"
+                ),
+            }
+        )
 
     except Exception as e:
         traceback.print_exc()

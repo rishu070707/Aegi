@@ -92,6 +92,62 @@ Navigate to: **http://localhost:5000**
 
 ---
 
+## Custom Weapon Dataset Training
+
+This repository can consume merged weapon datasets from multiple sources and fine-tune a YOLO model for better real-world weapon detection.
+
+### 1. Download dataset sources
+You can manually download and export the following sources in YOLO format:
+
+1. Google Open Images (Weapon classes): https://storage.googleapis.com/openimages/web/index.html
+2. GitHub curated weapon detection dataset: https://github.com/ari-dasci/OD-WeaponDetection
+3. Roboflow Universe weapon datasets: https://universe.roboflow.com/search?q=class:weapon
+4. Roboflow Top Weapon Detection dataset: https://universe.roboflow.com/yolov7test-u13vc/weapon-detection-m7qso
+5. Roboflow Handgun/Knife/Rifle/Shotgun dataset: https://universe.roboflow.com/fypit2/weapon-detection-mhdza
+6. Kaggle Weapon Detection dataset: https://www.kaggle.com/datasets/snehilsanyal/weapon-detection-test
+7. Kaggle Guns Object Detection: https://www.kaggle.com/datasets/issaisasank/guns-object-detection
+8. Kaggle weapon detection search results: https://www.kaggle.com/search?q=weapon+detection
+
+### 2. Merge sources
+Place each dataset in its own folder and run:
+```bash
+python scripts/prepare_weapon_dataset.py \
+  --sources ./data/openimages ./data/ari-dasci ./data/roboflow-top ./data/roboflow-special ./data/kaggle-weapon ./data/kaggle-guns \
+  --output ./data/weapon_combined \
+  --target-classes Handgun,Knife,Rifle,Shotgun \
+  --split 0.85
+```
+
+This will create:
+
+- `./data/weapon_combined/images/train`
+- `./data/weapon_combined/images/val`
+- `./data/weapon_combined/labels/train`
+- `./data/weapon_combined/labels/val`
+- `./data/weapon_combined/weapon_data.yaml`
+
+### 3. Train a custom model
+Train on the merged dataset with:
+```bash
+python scripts/train_weapon_model.py \
+  --data ./data/weapon_combined/weapon_data.yaml \
+  --weights yolov8s.pt \
+  --epochs 50 \
+  --imgsz 640 \
+  --batch 16
+```
+
+### 4. Deploy the new weights
+After training, copy the best checkpoint into the repo root:
+```bash
+cp runs/train/weapon_finetune/weights/best.pt weapon_model.pt
+```
+Then restart the app.
+
+If you want a single-keypoint dataset merge for all eight sources, make sure each downloaded dataset is converted to YOLO format before running `prepare_weapon_dataset.py`.
+
+---
+
 ## Usage
 
 ### 📷 Image Detection

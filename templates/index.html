@@ -131,7 +131,7 @@
             <div class="absolute top-6 left-6 bg-black/60 backdrop-blur-md p-3 border border-emerald-500/40 rounded-sm">
               <div class="text-[9px] font-mono text-emerald-400/70 mb-1">DETECTION_ENGINE_V4</div>
               <div class="text-[10px] font-mono text-emerald-400 flex items-center gap-2">
-                <span class="material-symbols-outlined text-xs">radar</span> DUAL_MODEL_ACTIVE
+                <span class="material-symbols-outlined text-xs">radar</span> HF_WEAPON_MODEL
               </div>
             </div>
             <!-- Latency -->
@@ -161,8 +161,8 @@
         <div class="md:col-span-2 bg-surface border border-outline-variant/20 p-8 rounded-sm hover:border-secondary/40 transition-all group flex flex-col justify-between min-h-[360px]">
           <div>
             <span class="material-symbols-outlined text-4xl text-secondary mb-6 block">psychology</span>
-            <h3 class="text-3xl font-headline font-bold mb-4 tracking-tight uppercase">Dual-Model Detection</h3>
-            <p class="text-on-surface-variant text-lg leading-relaxed">Primary weapon_model.pt (Threat-Detection-YOLOv8n) + secondary YOLOv8L COCO for reliable knife detection. Geometric sanity filters eliminate false positives.</p>
+            <h3 class="text-3xl font-headline font-bold mb-4 tracking-tight uppercase">HF weapon model</h3>
+            <p class="text-on-surface-variant text-lg leading-relaxed">Hugging Face Subh775/Threat-Detection-YOLOv8n weights (weapon_model.pt) only — Gun, Knife, Grenade, and related classes. Geometric checks reduce false positives.</p>
           </div>
           <div class="mt-8 grid grid-cols-4 gap-3">
             {% for cls,col in [('Handgun','emerald'),('Knife','blue'),('Rifle','purple'),('Shotgun','orange')] %}
@@ -203,9 +203,9 @@
             </div>
             <div class="space-y-2 overflow-hidden" id="telemetryLog">
               <div class="flex gap-4 opacity-100"><span class="text-slate-600" id="t1">--:--:--</span><span class="text-secondary">[OK]</span><span class="text-on-surface">NEURAL_WEIGHTS_LOADED</span></div>
-              <div class="flex gap-4 opacity-80"><span class="text-slate-600" id="t2">--:--:--</span><span class="text-secondary">[OK]</span><span class="text-on-surface">DUAL_MODEL_INIT: COMPLETE</span></div>
+              <div class="flex gap-4 opacity-80"><span class="text-slate-600" id="t2">--:--:--</span><span class="text-secondary">[OK]</span><span class="text-on-surface">WEAPON_WEIGHTS_INIT: COMPLETE</span></div>
               <div class="flex gap-4 opacity-60"><span class="text-slate-600" id="t3">--:--:--</span><span class="text-secondary-container">[INFO]</span><span class="text-on-surface">WEAPON_MODEL: ACTIVE</span></div>
-              <div class="flex gap-4 opacity-50"><span class="text-slate-600" id="t4">--:--:--</span><span class="text-secondary">[OK]</span><span class="text-on-surface">YOLOV8L: SECONDARY_KNIFE</span></div>
+              <div class="flex gap-4 opacity-50"><span class="text-slate-600" id="t4">--:--:--</span><span class="text-secondary">[OK]</span><span class="text-on-surface">COCO_SECONDARY: DISABLED</span></div>
               <div class="flex gap-4 opacity-30"><span class="text-slate-600">--:--:--</span><span class="text-slate-500">DAEMON_IDLE...</span></div>
             </div>
           </div>
