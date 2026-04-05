@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-04-05T05:31:31.368802+00:00",
+  "class": "Handgun",
+  "confidence": 0.5071,
+  "bbox": [
+    387,
+    0,
+    714,
+    412
+  ],
+  "risk_score": 0.4835,
+  "risk_level": "Medium",
+  "roi_zone": [],
+  "session_id": "682787b0",
+  "frame_file": "alert_2026_04_05_05_31_31_Handgun_Medium.png"
+}

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}VIDEO PROCESSING | SENTINEL ALPHA{% endblock %}
+
+{% block content %}
+<div class="ml-0 pt-0 min-h-full flex flex-col bg-surface p-6">
+  <!-- Processing Workspace -->
+  <div class="flex-1 grid grid-cols-12 gap-6 h-[calc(100vh-64px-32px-64px)]">
+    <!-- Left Panel: Ingestion Module -->
+    <section class="col-span-12 lg:col-span-5 flex flex-col h-full">
+      <div class="bg-surface-container-low p-6 rounded-sm border-l-2 border-primary-container h-full flex flex-col transition-all duration-300">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="font-headline text-lg font-bold tracking-tight text-primary">Ingestion Module</h2>
+          <span id="ingestionStatus" class="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-mono border border-primary/20">READY_FOR_BUFFER</span>
+        </div>
+        <!-- Drag and Drop Zone -->
+        <div id="dropZoneVid" class="flex-1 border-2 border-dashed border-outline-variant rounded-sm flex flex-col items-center justify-center p-8 hover:bg-surface-container-high hover:border-secondary transition-all group cursor-pointer relative overflow-hidden">
+          <div class="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <span class="material-symbols-outlined text-secondary text-3xl">upload_file</span>
+          </div>
+          <p class="font-headline font-bold text-on-surface mb-2 tracking-widest text-xs uppercase">DRAG AND DROP RAW FEED</p>
+          <p class="text-on-surface-variant text-[10px] font-mono text-center px-4 leading-relaxed mt-4">
+            Encrypted surveillance stream container supporting: .MP4, .MKV, .AVI
+          </p>
+          <input type="file" id="fileInputVid" class="absolute inset-0 opacity-0 cursor-pointer" accept="video/*">
+        </div>
+
+        <div class="mt-6">
+          <button id="runDetectionVid" class="w-full bg-secondary text-on-secondary-container font-headline text-xs font-bold py-3 tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(78,222,163,0.2)]">
+            <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">bolt</span> INITIATE NEURAL SCAN
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Panel: Processing Status -->
+    <section class="col-span-12 lg:col-span-7 flex flex-col h-full">
+      <div class="bg-surface-container-low rounded-sm p-6 shadow-2xl relative overflow-hidden border border-outline-variant/10 flex flex-col h-full transition-all duration-300">
+        <div id="outputContainer" class="flex flex-col h-full">
+           <!-- Placeholder -->
+           <div id="vidPlaceholder" class="flex-1 flex flex-col items-center justify-center opacity-40">
+             <span class="material-symbols-outlined text-6xl mb-4">video_library</span>
+             <p class="text-[10px] font-mono uppercase tracking-[0.2em] animate-pulse">AWAITING_PROCESSING_QUEUE...</p>
+           </div>
+
+           <!-- Progress -->
+           <div id="vidProgressArea" class="hidden flex-1 flex flex-col items-center justify-center space-y-8">
+              <span class="material-symbols-outlined text-6xl text-secondary animate-spin">cyclone</span>
+              <div class="w-full max-w-sm space-y-4">
+                <div class="flex justify-between font-mono text-[10px]">
+                  <span class="text-secondary animate-pulse uppercase tracking-[0.2em]">Processing...</span>
+                  <span id="procTimer" class="text-on-surface">ETM: 00:00:00</span>
+                </div>
+                <div class="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
+                  <div class="h-full bg-secondary animate-pulse w-1/3"></div>
+                </div>
+                <p class="text-[10px] text-center text-on-surface-variant font-mono">NEURAL_PASS_RUNNING_IN_BUFFER</p>
+              </div>
+           </div>
+
+           <!-- Result View -->
+           <div id="vidResultArea" class="hidden flex-1 flex flex-col h-full">
+             <div class="flex-1 bg-black rounded-sm overflow-hidden mb-6 relative group">
+               <video id="vidOutput" controls class="w-full h-full object-contain"></video>
+               <div class="absolute inset-0 scanline pointer-events-none opacity-20"></div>
+             </div>
+             <div class="grid grid-cols-3 gap-6">
+               <div class="bg-surface-container-highest p-4 rounded-sm flex flex-col gap-1 border-l-2 border-emerald-500/30">
+                 <p class="text-on-surface-variant text-[10px] font-headline uppercase font-bold tracking-widest">FRAMES</p>
+                 <span id="resFrames" class="text-2xl font-mono font-bold text-emerald-400">0</span>
+               </div>
+               <div class="bg-surface-container-highest p-4 rounded-sm flex flex-col gap-1 border-l-2 border-emerald-500/30">
+                 <p class="text-on-surface-variant text-[10px] font-headline uppercase font-bold tracking-widest">THREATS</p>
+                 <span id="resThreats" class="text-2xl font-mono font-bold text-emerald-400">0</span>
+               </div>
+               <div class="bg-surface-container-highest p-4 rounded-sm flex flex-col gap-1 border-l-2 border-emerald-500/30">
+                 <p class="text-on-surface-variant text-[10px] font-headline uppercase font-bold tracking-widest">DOWNLOAD</p>
+                 <div class="flex items-center">
+                    <a id="downloadLink" href="#" download class="text-emerald-400 text-xs font-mono font-bold flex items-center gap-1 hover:underline">
+                      FILE_EXPORT <span class="material-symbols-outlined text-xs">download</span>
+                    </a>
+                 </div>
+               </div>
+             </div>
+           </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const fileInput = document.getElementById('fileInputVid');
+  const dropZone = document.getElementById('dropZoneVid');
+  const runBtn = document.getElementById('runDetectionVid');
+  const placeholder = document.getElementById('vidPlaceholder');
+  const progressArea = document.getElementById('vidProgressArea');
+  const resultArea = document.getElementById('vidResultArea');
+  const statusLabel = document.getElementById('ingestionStatus');
+  const vidOutput = document.getElementById('vidOutput');
+
+  let selectedFile = null;
+
+  dropZone.onclick = () => fileInput.click();
+  fileInput.onchange = (e) => {
+    if (e.target.files.length > 0) {
+      selectedFile = e.target.files[0];
+      statusLabel.textContent = 'FILE_UPLOAD_READY (' + (selectedFile.size/1024/1024).toFixed(1) + 'MB)';
+      statusLabel.className = 'px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-mono border border-emerald-500/20';
+    }
+  }
+
+  runBtn.onclick = async () => {
+    if (!selectedFile) return;
+
+    placeholder.classList.add('hidden');
+    resultArea.classList.add('hidden');
+    progressArea.classList.remove('hidden');
+    statusLabel.textContent = 'NEURAL_SCAN_IN_PROGRESS';
+    statusLabel.className = 'px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-mono border border-primary/20 animate-pulse';
+
+    const formData = new FormData();
+    formData.append('video', selectedFile);
+
+    try {
+      const res = await fetch('/detect/video', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (data.download_url) {
+        progressArea.classList.add('hidden');
+        resultArea.classList.remove('hidden');
+        statusLabel.textContent = 'SCAN_COMPLETE_EXPORT_READY';
+        vidOutput.src = data.download_url;
+        document.getElementById('resFrames').textContent = data.frames_processed;
+        document.getElementById('resThreats').textContent = data.total_detections;
+        document.getElementById('downloadLink').href = data.download_url;
+        document.getElementById('downloadLink').download = 'sentinel_export_' + Date.now() + '.mp4';
+      }
+    } catch (e) {
+      console.error(e);
+      statusLabel.textContent = 'SCAN_ERROR_RETRY';
+      placeholder.classList.remove('hidden');
+      progressArea.classList.add('hidden');
+    }
+  };
+</script>
+{% endblock %}

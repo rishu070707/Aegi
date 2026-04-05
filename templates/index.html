@@ -1,187 +1,269 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="dark" lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aegis AI - Weapon Detection Tracking</title>
-    <meta name="description" content="Real-time YOLOv8s weapon and object detection surveillance system.">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <style>
-        /* Extra styles for the logs modal and alerts */
-        .alert-active {
-            box-shadow: 0 0 40px rgba(244, 63, 94, 0.8) !important;
-            border-color: rgba(244, 63, 94, 0.9) !important;
-        }
-
-        /* Modal Styles */
-        .modal {
-            display: none; 
-            position: fixed; 
-            z-index: 100; 
-            left: 0;
-            top: 0;
-            width: 100%; 
-            height: 100%; 
-            background-color: rgba(0,0,0,0.7); 
-            backdrop-filter: blur(5px);
-        }
-
-        .modal-content {
-            background-color: var(--glass-bg);
-            margin: 10% auto; 
-            padding: 2rem;
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            width: 80%;
-            max-width: 600px;
-            color: var(--text-light);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-
-        .close-btn {
-            color: var(--text-muted);
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close-btn:hover {
-            color: var(--accent-color);
-        }
-
-        #logs-container {
-            margin-top: 1rem;
-            max-height: 300px;
-            overflow-y: auto;
-            background: rgba(0,0,0,0.3);
-            border-radius: 8px;
-            padding: 1rem;
-        }
-
-        .log-entry {
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            padding: 8px 0;
-            color: var(--primary-color);
-            font-family: monospace;
-        }
-    </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SENTINEL ALPHA | Advanced Neural Surveillance</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode:"class",
+    theme:{ extend:{
+      colors:{ "surface-variant":"#2d3449","error":"#ffb4ab","surface-container-low":"#131b2e","tertiary":"#c0c1ff","surface-container-highest":"#2d3449","secondary-fixed":"#6ffbbe","on-secondary-container":"#00311f","inverse-primary":"#005ac2","surface":"#0b1326","on-surface-variant":"#c2c6d6","on-surface":"#dae2fd","secondary":"#4edea3","error-container":"#93000a","on-secondary":"#003824","on-primary":"#002e6a","background":"#0b1326","surface-container-lowest":"#060e20","surface-container-high":"#222a3d","outline-variant":"#424754","outline":"#8c909f","secondary-container":"#00a572","surface-container":"#171f33","primary":"#adc6ff","on-error":"#690005" },
+      fontFamily:{ "headline":["Space Grotesk"],"body":["Inter"],"mono":["JetBrains Mono"] }
+    }}
+  }
+</script>
+<style>
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}
+  body{font-family:'Inter',sans-serif;background:#0b1326;color:#dae2fd;}
+  .font-headline{font-family:'Space Grotesk',sans-serif;}
+  .font-mono{font-family:'JetBrains Mono',monospace;}
+  .scanline{background:linear-gradient(to bottom,transparent 50%,rgba(78,222,163,0.05) 51%,transparent 51%);background-size:100% 4px;}
+  .glow-secondary{filter:drop-shadow(0 0 8px rgba(78,222,163,0.4));}
+  @keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+  .float-anim{animation:floatY 4s ease-in-out infinite;}
+  @keyframes scanDown{0%{top:0}100%{top:100%}}
+  .scan-line{position:absolute;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,#4edea3,transparent);box-shadow:0 0 15px #4edea3;animation:scanDown 3s linear infinite;}
+</style>
 </head>
-<body>
-    <div class="glass-container" id="main-container">
-        <header>
-            <h1 id="main-heading"><span class="highlight">Aegis</span> AI Surveillance</h1>
-            <p>Real-Time Weapon Detection & Object Tracking via YOLOv8</p>
-        </header>
+<body class="bg-surface text-on-surface antialiased overflow-x-hidden">
 
-        <main>
-            <div class="video-wrapper" id="video-wrapper">
-                <div class="status-badge" id="live-status"><span class="pulse"></span> LIVE DETECT</div>
-                <!-- Flask MJPEG Stream Route -->
-                <img src="{{ url_for('video_feed') }}" alt="Live surveillance stream with YOLOv8 detection boxes" class="video-feed" id="surveillance-feed" />
-                <div class="overlay-grid"></div>
-            </div>
-
-            <div class="stats-panel">
-                <div class="stat-card" id="card-accuracy">
-                    <h3>mAP@50</h3>
-                    <p class="stat-value">92%</p>
-                </div>
-                <div class="stat-card" id="card-model">
-                    <h3>Active Model</h3>
-                    <p class="stat-value">YOLOv8l</p>
-                </div>
-                <div class="stat-card" id="card-performance">
-                    <h3>Peak FPS</h3>
-                    <p class="stat-value">~47 FPS</p>
-                </div>
-            </div>
-        </main>
-        
-        <footer>
-            <button class="btn-primary" id="btn-settings">System Settings</button>
-            <button class="btn-secondary" id="btn-logs">View Detection Logs</button>
-        </footer>
+<!-- Nav -->
+<nav class="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-xl flex justify-between items-center px-6 h-16 shadow-[0_0_40px_rgba(59,130,246,0.06)]">
+  <div class="flex items-center gap-8">
+    <span class="text-xl font-bold text-emerald-500 tracking-widest font-headline uppercase">SENTINEL ALPHA</span>
+    <div class="hidden md:flex gap-6">
+      <a href="/live"   class="text-slate-400 hover:text-slate-200 font-headline tracking-tighter uppercase text-sm transition-colors">LIVE FEEDS</a>
+      <a href="/logs"   class="text-slate-400 hover:text-slate-200 font-headline tracking-tighter uppercase text-sm transition-colors">ARCHIVE</a>
+      <a href="/camera" class="text-slate-400 hover:text-slate-200 font-headline tracking-tighter uppercase text-sm transition-colors">ANALYTICS</a>
+      <a href="/video"  class="text-slate-400 hover:text-slate-200 font-headline tracking-tighter uppercase text-sm transition-colors">THREAT MAP</a>
     </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="material-symbols-outlined text-slate-400 hover:text-emerald-400 cursor-pointer p-2 transition-colors">notifications_active</span>
+    <span class="material-symbols-outlined text-slate-400 hover:text-emerald-400 cursor-pointer p-2 transition-colors">settings</span>
+    <span class="material-symbols-outlined text-slate-400 hover:text-emerald-400 cursor-pointer p-2 transition-colors">terminal</span>
+    <div class="h-8 w-8 rounded-sm bg-surface-container-highest flex items-center justify-center border border-emerald-500/30">
+      <span class="material-symbols-outlined text-emerald-400 text-sm">person</span>
+    </div>
+  </div>
+</nav>
 
-    <!-- The Logs Modal -->
-    <div id="logsModal" class="modal">
-      <div class="modal-content">
-        <span class="close-btn">&times;</span>
-        <h2>🚨 Weapon Detection Logs</h2>
-        <div id="logs-container">
-            <div class="log-entry">Waiting for detections...</div>
+<main class="pt-16 min-h-screen">
+
+  <!-- Hero -->
+  <section class="relative min-h-[90vh] flex items-center overflow-hidden px-6 lg:px-24">
+    <div class="absolute inset-0 scanline opacity-20 pointer-events-none"></div>
+    <div class="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-emerald-500/5 to-transparent pointer-events-none"></div>
+    <div class="grid lg:grid-cols-2 gap-12 items-center relative z-10 w-full">
+      <div class="space-y-8">
+        <div class="inline-flex items-center gap-2 px-3 py-1 bg-secondary/10 border border-secondary/20 rounded-full">
+          <span class="w-2 h-2 rounded-full bg-secondary animate-pulse shadow-[0_0_8px_#4edea3]"></span>
+          <span class="text-[10px] font-mono font-bold tracking-[0.2em] text-secondary" id="heroStatus">SYSTEM CORE: CONNECTING...</span>
+        </div>
+        <h1 class="text-6xl md:text-8xl font-headline font-black tracking-tighter leading-[0.9] text-on-surface">
+          ADVANCED <br/>
+          <span class="text-secondary glow-secondary">NEURAL</span><br/>
+          SURVEILLANCE
+        </h1>
+        <p class="text-on-surface-variant max-w-lg leading-relaxed text-lg border-l-2 border-outline-variant/30 pl-6">
+          Next-generation real-time weapon detection and predictive threat analysis. Powered by dual YOLOv8 neural models for Handgun, Knife, Rifle and Shotgun recognition across live feeds and video archives.
+        </p>
+        <div class="flex flex-wrap gap-4 pt-4">
+          <a href="/live" class="bg-gradient-to-br from-secondary to-secondary-container text-on-secondary-container px-8 py-4 font-headline font-bold text-sm tracking-widest uppercase rounded-sm flex items-center gap-3 hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(78,222,163,0.3)]">
+            INITIALIZE SYSTEM
+            <span class="material-symbols-outlined text-lg">rocket_launch</span>
+          </a>
+          <a href="/logs" class="border border-outline-variant/50 hover:bg-surface-variant/30 px-8 py-4 font-headline font-bold text-sm tracking-widest uppercase rounded-sm transition-all text-on-surface">
+            VIEW ARCHIVES
+          </a>
+        </div>
+        <!-- Live stats -->
+        <div class="grid grid-cols-3 gap-4 pt-4 max-w-md">
+          <div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-sm">
+            <div class="text-[9px] font-mono text-outline mb-1 uppercase">AVG LATENCY</div>
+            <div class="font-mono text-lg font-bold text-secondary" id="heroLatency">—<span class="text-xs">ms</span></div>
+          </div>
+          <div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-sm">
+            <div class="text-[9px] font-mono text-outline mb-1 uppercase">MODEL</div>
+            <div class="font-mono text-xs font-bold text-primary truncate" id="heroModel">—</div>
+          </div>
+          <div class="bg-surface-container-low border border-outline-variant/20 p-3 rounded-sm">
+            <div class="text-[9px] font-mono text-outline mb-1 uppercase">MODE</div>
+            <div class="font-mono text-xs font-bold text-on-surface" id="heroMode">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HUD Preview -->
+      <div class="relative group float-anim">
+        <div class="absolute -inset-1 bg-gradient-to-r from-emerald-500/20 to-blue-500/10 rounded-xl blur opacity-40"></div>
+        <div class="relative bg-surface-container-low border border-outline-variant/20 rounded-xl overflow-hidden aspect-[4/3] shadow-2xl">
+          <div class="absolute inset-0 bg-gradient-to-br from-slate-900 to-surface-container-lowest">
+            <!-- Grid overlay -->
+            <div class="absolute inset-0 opacity-10" style="background-image:radial-gradient(#4edea3 0.5px,transparent 0.5px);background-size:28px 28px;"></div>
+            <!-- Scan line -->
+            <div class="scan-line"></div>
+            <!-- HUD corners -->
+            <div class="absolute top-4 left-4 w-12 h-12 border-t-2 border-l-2 border-emerald-500/60"></div>
+            <div class="absolute top-4 right-4 w-12 h-12 border-t-2 border-r-2 border-emerald-500/60"></div>
+            <div class="absolute bottom-4 left-4 w-12 h-12 border-b-2 border-l-2 border-emerald-500/60"></div>
+            <div class="absolute bottom-4 right-4 w-12 h-12 border-b-2 border-r-2 border-emerald-500/60"></div>
+            <!-- Target lock -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 border border-secondary/50 flex flex-col justify-between p-1">
+              <div class="flex justify-between">
+                <span class="w-2 h-2 border-t border-l border-secondary"></span>
+                <span class="w-2 h-2 border-t border-r border-secondary"></span>
+              </div>
+              <div class="flex flex-col items-center">
+                <div class="text-[8px] font-mono text-secondary bg-secondary/10 px-1">LOCK_ACQUIRED</div>
+                <div class="text-[7px] font-mono text-secondary opacity-60">KNIFE • 94.8%</div>
+              </div>
+              <div class="flex justify-between">
+                <span class="w-2 h-2 border-b border-l border-secondary"></span>
+                <span class="w-2 h-2 border-b border-r border-secondary"></span>
+              </div>
+            </div>
+            <!-- Status HUD -->
+            <div class="absolute top-6 left-6 bg-black/60 backdrop-blur-md p-3 border border-emerald-500/40 rounded-sm">
+              <div class="text-[9px] font-mono text-emerald-400/70 mb-1">DETECTION_ENGINE_V4</div>
+              <div class="text-[10px] font-mono text-emerald-400 flex items-center gap-2">
+                <span class="material-symbols-outlined text-xs">radar</span> DUAL_MODEL_ACTIVE
+              </div>
+            </div>
+            <!-- Latency -->
+            <div class="absolute bottom-6 right-6 text-right">
+              <div class="text-[9px] font-mono text-emerald-400/50 mb-1 uppercase tracking-widest">Neural Latency</div>
+              <div class="text-3xl font-headline font-bold text-secondary" id="heroHudLatency">—<span class="text-lg">MS</span></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+  </section>
 
-    <!-- Script to poll status and handle logs -->
-    <script>
-        const modal = document.getElementById("logsModal");
-        const btnLogs = document.getElementById("btn-logs");
-        const spanClose = document.getElementsByClassName("close-btn")[0];
-        const logsContainer = document.getElementById("logs-container");
-        const videoWrapper = document.getElementById("video-wrapper");
-        
-        // Open the modal
-        btnLogs.onclick = function() {
-            modal.style.display = "block";
-        }
-        
-        // Close the modal
-        spanClose.onclick = function() {
-            modal.style.display = "none";
-        }
-        
-        // Close modal if user clicks outside of it
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
-        }
+  <!-- Intelligence Grid -->
+  <section class="py-24 px-6 lg:px-24 bg-surface-container-lowest">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex justify-between items-end mb-16">
+        <div class="space-y-4">
+          <h2 class="text-4xl md:text-5xl font-headline font-black tracking-tighter uppercase">CORE INTELLIGENCE</h2>
+          <p class="text-on-surface-variant max-w-xl">Integrated weapon detection protocols for total situational awareness.</p>
+        </div>
+        <div class="font-mono text-xs text-secondary/60 hidden md:block">PRTCL_ID: ALPHA_INTEL_G8</div>
+      </div>
+      <div class="grid md:grid-cols-3 gap-6">
 
-        // Notification System via Polling
-        let notificationAudio = new Audio('https://www.soundjay.com/buttons/sounds/beep-01a.mp3');
-        let justAlerted = false;
+        <!-- Neural Detection -->
+        <div class="md:col-span-2 bg-surface border border-outline-variant/20 p-8 rounded-sm hover:border-secondary/40 transition-all group flex flex-col justify-between min-h-[360px]">
+          <div>
+            <span class="material-symbols-outlined text-4xl text-secondary mb-6 block">psychology</span>
+            <h3 class="text-3xl font-headline font-bold mb-4 tracking-tight uppercase">Dual-Model Detection</h3>
+            <p class="text-on-surface-variant text-lg leading-relaxed">Primary weapon_model.pt (Threat-Detection-YOLOv8n) + secondary YOLOv8L COCO for reliable knife detection. Geometric sanity filters eliminate false positives.</p>
+          </div>
+          <div class="mt-8 grid grid-cols-4 gap-3">
+            {% for cls,col in [('Handgun','emerald'),('Knife','blue'),('Rifle','purple'),('Shotgun','orange')] %}
+            <div class="bg-surface-container p-3 rounded-sm border border-outline-variant/20 text-center">
+              <div class="text-[9px] font-mono text-{{ col }}-400 mb-1">CLASS</div>
+              <div class="text-xs font-headline font-bold">{{ cls }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
 
-        setInterval(() => {
-            fetch('/api/status')
-                .then(response => response.json())
-                .then(data => {
-                    // Update Web UI Alert State
-                    if (data.weapon_detected) {
-                        videoWrapper.classList.add('alert-active');
-                        if (!justAlerted) {
-                            // Play sound or browser notification here if permitted
-                            notificationAudio.play().catch(e => console.log('Audio blocked by browser.'));
-                            if (Notification.permission === "granted") {
-                                new Notification("⚠️ WEAPON DETECTED - Check Camera Feed!");
-                            } else if (Notification.permission !== "denied") {
-                                Notification.requestPermission();
-                            }
-                            justAlerted = true;
-                        }
-                    } else {
-                        videoWrapper.classList.remove('alert-active');
-                        justAlerted = false;
-                    }
+        <!-- ROI Monitoring -->
+        <div class="bg-surface-container-high border border-outline-variant/20 p-8 rounded-sm hover:border-secondary/40 transition-all flex flex-col">
+          <span class="material-symbols-outlined text-4xl text-primary mb-6 block">crop_free</span>
+          <h3 class="text-2xl font-headline font-bold mb-4 tracking-tight uppercase">ROI Monitoring</h3>
+          <p class="text-on-surface-variant mb-8">Define polygonal surveillance zones. Detections outside zones are suppressed — focus on what matters.</p>
+          <div class="mt-auto pt-6 border-t border-outline-variant/20 space-y-3">
+            <div class="flex items-center gap-3 text-xs font-mono text-on-surface/80"><span class="w-1 h-1 rounded-full bg-primary"></span> POLYGON ROI ZONES</div>
+            <div class="flex items-center gap-3 text-xs font-mono text-on-surface/80"><span class="w-1 h-1 rounded-full bg-primary"></span> RISK SCORE ELEVATION</div>
+            <div class="flex items-center gap-3 text-xs font-mono text-on-surface/80"><span class="w-1 h-1 rounded-full bg-primary"></span> EVIDENCE AUTO-LOGGING</div>
+          </div>
+        </div>
 
-                    // Populate Logs
-                    if (data.logs && data.logs.length > 0) {
-                        logsContainer.innerHTML = '';
-                        data.logs.forEach(msg => {
-                            const div = document.createElement("div");
-                            div.className = "log-entry";
-                            // Highlight weapon alerts in red inside log
-                            div.style.color = msg.includes("WEAPON") ? "var(--accent-color)" : "inherit";
-                            div.textContent = msg;
-                            logsContainer.appendChild(div);
-                        });
-                    }
-                })
-                .catch(err => console.error("Error fetching status:", err));
-        }, 1000); // Check every second
-    </script>
+        <!-- Evidence Logs -->
+        <div class="md:col-span-3 grid md:grid-cols-2 bg-surface-container border border-outline-variant/20 rounded-sm overflow-hidden">
+          <div class="p-8 lg:p-12">
+            <span class="material-symbols-outlined text-4xl text-emerald-500 mb-6 block">database</span>
+            <h3 class="text-3xl font-headline font-bold mb-4 tracking-tight uppercase">Immutable Evidence Log</h3>
+            <p class="text-on-surface-variant text-lg mb-8">Every detection auto-saves an annotated snapshot with confidence, risk score, bbox coordinates, and session ID for forensic audit.</p>
+            <a href="/logs" class="flex items-center gap-2 text-secondary font-headline font-bold tracking-widest text-sm hover:underline">
+              EXPLORE EVIDENCE ARCHIVE <span class="material-symbols-outlined">arrow_forward</span>
+            </a>
+          </div>
+          <div class="bg-surface-container-lowest p-6 font-mono text-[10px] border-l border-outline-variant/20 flex flex-col min-h-[280px]">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-outline-variant/20">
+              <span class="text-emerald-500/60">LIVE_SYSTEM_TELEMETRY</span>
+              <span class="text-emerald-500 animate-pulse">● RECORDING</span>
+            </div>
+            <div class="space-y-2 overflow-hidden" id="telemetryLog">
+              <div class="flex gap-4 opacity-100"><span class="text-slate-600" id="t1">--:--:--</span><span class="text-secondary">[OK]</span><span class="text-on-surface">NEURAL_WEIGHTS_LOADED</span></div>
+              <div class="flex gap-4 opacity-80"><span class="text-slate-600" id="t2">--:--:--</span><span class="text-secondary">[OK]</span><span class="text-on-surface">DUAL_MODEL_INIT: COMPLETE</span></div>
+              <div class="flex gap-4 opacity-60"><span class="text-slate-600" id="t3">--:--:--</span><span class="text-secondary-container">[INFO]</span><span class="text-on-surface">WEAPON_MODEL: ACTIVE</span></div>
+              <div class="flex gap-4 opacity-50"><span class="text-slate-600" id="t4">--:--:--</span><span class="text-secondary">[OK]</span><span class="text-on-surface">YOLOV8L: SECONDARY_KNIFE</span></div>
+              <div class="flex gap-4 opacity-30"><span class="text-slate-600">--:--:--</span><span class="text-slate-500">DAEMON_IDLE...</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Launch -->
+  <section class="py-16 px-6 lg:px-24">
+    <div class="max-w-7xl mx-auto grid md:grid-cols-3 gap-6">
+      {% for href,icon,title,desc,color in [
+        ('/live','videocam','Live Stream','Start real-time webcam detection with ROI zones and active alert panel','emerald'),
+        ('/camera','image','Image Analysis','Upload a single frame for instant weapon detection with annotated output','blue'),
+        ('/video','movie','Video Processing','Process full video files with temporal filtering and frame-by-frame analysis','purple')
+      ] %}
+      <a href="{{ href }}" class="group bg-surface-container-low border border-outline-variant/20 p-8 rounded-sm hover:border-{{ color }}-500/40 hover:bg-surface-container transition-all flex flex-col gap-4">
+        <span class="material-symbols-outlined text-3xl text-{{ color }}-400 group-hover:scale-110 transition-transform">{{ icon }}</span>
+        <h3 class="text-xl font-headline font-bold tracking-tight uppercase">{{ title }}</h3>
+        <p class="text-on-surface-variant text-sm leading-relaxed flex-1">{{ desc }}</p>
+        <div class="flex items-center gap-2 text-{{ color }}-400 text-xs font-mono font-bold">LAUNCH <span class="material-symbols-outlined text-sm">arrow_forward</span></div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+
+</main>
+
+<footer class="bg-surface border-t border-outline-variant/10 py-12 px-6 lg:px-24">
+  <div class="flex flex-col md:flex-row items-center gap-12">
+    <div class="text-[10px] font-mono font-bold tracking-[0.3em] text-slate-500 uppercase whitespace-nowrap">TRUSTED DETECTION PIPELINE</div>
+    <div class="flex flex-wrap justify-center gap-12 w-full opacity-40">
+      {% for icon,name in [('security','CORE_DEFENSE'),('public','TERRA_SYNC'),('satellite_alt','ASTRA_NET'),('shield','AEGIS_INTEL')] %}
+      <div class="font-headline font-black text-xl tracking-tighter flex items-center gap-2">
+        <span class="material-symbols-outlined text-secondary">{{ icon }}</span> {{ name }}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</footer>
+
+<script>
+async function loadStatus(){
+  try{
+    const d=await (await fetch('/api/status')).json();
+    const lat=d.edge_mode?.avg_latency_ms??'—';
+    document.getElementById('heroLatency').innerHTML=lat+'<span class="text-xs">ms</span>';
+    document.getElementById('heroHudLatency').innerHTML=lat+'<span class="text-lg">MS</span>';
+    document.getElementById('heroModel').textContent=d.model??'—';
+    document.getElementById('heroMode').textContent=(d.edge_mode?.current_mode??'—').toUpperCase();
+    document.getElementById('heroStatus').textContent=d.model_is_custom?'WEAPON MODEL: ACTIVE':'COCO MODEL: ACTIVE';
+    const now=new Date();
+    const ts=now.toTimeString().slice(0,8);
+    ['t1','t2','t3','t4'].forEach(id=>document.getElementById(id).textContent=ts);
+  }catch{}
+}
+loadStatus(); setInterval(loadStatus,5000);
+</script>
 </body>
 </html>

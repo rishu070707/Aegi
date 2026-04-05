@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{% block title %}SENTINEL ALPHA{% endblock %}</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "surface-variant":"#2d3449","primary-container":"#4d8eff","on-secondary-container":"#00311f",
+          "error":"#ffb4ab","surface-container-low":"#131b2e","tertiary":"#c0c1ff",
+          "surface-container-highest":"#2d3449","secondary-fixed":"#6ffbbe","primary-fixed-dim":"#adc6ff",
+          "inverse-primary":"#005ac2","on-tertiary":"#1000a9","primary-fixed":"#d8e2ff",
+          "tertiary-fixed":"#e1e0ff","surface":"#0b1326","on-surface-variant":"#c2c6d6",
+          "tertiary-fixed-dim":"#c0c1ff","secondary-fixed-dim":"#4edea3","on-tertiary-fixed":"#07006c",
+          "on-tertiary-container":"#0d0096","on-error-container":"#ffdad6","on-surface":"#dae2fd",
+          "on-secondary-fixed":"#002113","surface-tint":"#adc6ff","tertiary-container":"#8083ff",
+          "secondary":"#4edea3","error-container":"#93000a","on-primary-fixed-variant":"#004395",
+          "on-primary-fixed":"#001a42","on-background":"#dae2fd","inverse-on-surface":"#283044",
+          "secondary-container":"#00a572","surface-container":"#171f33","primary":"#adc6ff",
+          "outline-variant":"#424754","on-error":"#690005","on-secondary":"#003824",
+          "on-primary":"#002e6a","surface-bright":"#31394d","background":"#0b1326",
+          "surface-container-lowest":"#060e20","surface-container-high":"#222a3d",
+          "surface-dim":"#0b1326","inverse-surface":"#dae2fd","outline":"#8c909f",
+          "on-primary-container":"#00285d"
+        },
+        fontFamily: { "headline":["Space Grotesk"],"body":["Inter"],"label":["Inter"],"mono":["JetBrains Mono"] }
+      }
+    }
+  }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+  body { font-family:'Inter',sans-serif; background:#0b1326; color:#dae2fd; }
+  .font-headline { font-family:'Space Grotesk',sans-serif; }
+  .font-mono { font-family:'JetBrains Mono',monospace; }
+  .scanline { background:linear-gradient(to bottom,transparent 50%,rgba(78,222,163,0.05) 51%,transparent 51%); background-size:100% 4px; }
+  ::-webkit-scrollbar { width:4px; height:4px; }
+  ::-webkit-scrollbar-track { background:#131b2e; }
+  ::-webkit-scrollbar-thumb { background:#4edea344; border-radius:2px; }
+</style>
+{% block head %}{% endblock %}
+</head>
+<body class="bg-surface text-on-surface antialiased">
+
+<!-- Top Nav -->
+<header class="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-xl flex justify-between items-center px-6 h-16 shadow-[0_0_40px_rgba(59,130,246,0.06)] border-b border-white/5">
+  <div class="flex items-center gap-8">
+    <a href="/" class="text-xl font-bold text-emerald-500 tracking-widest font-headline uppercase">SENTINEL ALPHA</a>
+    <nav class="hidden md:flex gap-6">
+      <a href="/live"     class="font-headline tracking-tighter uppercase text-sm transition-colors {% if active == 'live'     %}text-emerald-400 border-b-2 border-emerald-400 pb-1{% else %}text-slate-400 hover:text-slate-200{% endif %}">LIVE FEEDS</a>
+      <a href="/logs"     class="font-headline tracking-tighter uppercase text-sm transition-colors {% if active == 'logs'     %}text-emerald-400 border-b-2 border-emerald-400 pb-1{% else %}text-slate-400 hover:text-slate-200{% endif %}">ARCHIVE</a>
+      <a href="/camera"   class="font-headline tracking-tighter uppercase text-sm transition-colors {% if active == 'camera'   %}text-emerald-400 border-b-2 border-emerald-400 pb-1{% else %}text-slate-400 hover:text-slate-200{% endif %}">ANALYTICS</a>
+      <a href="/video"    class="font-headline tracking-tighter uppercase text-sm transition-colors {% if active == 'video'    %}text-emerald-400 border-b-2 border-emerald-400 pb-1{% else %}text-slate-400 hover:text-slate-200{% endif %}">THREAT MAP</a>
+    </nav>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="material-symbols-outlined text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors p-2">notifications_active</span>
+    <span class="material-symbols-outlined text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors p-2">settings</span>
+    <span class="material-symbols-outlined text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors p-2">terminal</span>
+    <div class="w-8 h-8 rounded-sm bg-surface-container-highest border border-emerald-500/30 flex items-center justify-center">
+      <span class="material-symbols-outlined text-emerald-400 text-sm">person</span>
+    </div>
+  </div>
+</header>
+
+<!-- Sidebar -->
+<aside class="fixed left-0 top-0 h-full w-64 z-40 bg-slate-900 flex flex-col pt-20 pb-6 border-r border-white/5">
+  <div class="px-6 mb-8">
+    <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-sm">
+      <div class="w-9 h-9 bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center rounded-sm">
+        <span class="material-symbols-outlined text-emerald-500" style="font-variation-settings:'FILL' 1;">security</span>
+      </div>
+      <div>
+        <p class="text-emerald-500 font-black font-headline text-[10px] tracking-widest uppercase">SENTINEL ALPHA</p>
+        <p class="text-slate-500 text-[9px] font-mono">v4.2.0-STABLE</p>
+      </div>
+    </div>
+  </div>
+  <nav class="flex-1 space-y-0.5">
+    {% set nav=[('grid_view','DASHBOARD','/'),('videocam','CAMERAS','/camera'),('sensors','SENSORS','#'),('fingerprint','BIOMETRICS','#'),('list_alt','LOGS','/logs'),('movie','VIDEO','/video'),('lan','NETWORK','#')] %}
+    {% for icon,label,href in nav %}
+    <a href="{{ href }}" class="flex items-center gap-4 px-6 py-3 font-headline text-xs font-bold tracking-widest transition-all
+      {% if (href=='/' and active=='dashboard') or (href!='/' and href in request.path) %}
+        text-emerald-400 bg-emerald-400/10 border-r-4 border-emerald-400
+      {% else %}
+        text-slate-500 hover:text-slate-300 hover:bg-slate-800/40
+      {% endif %}">
+      <span class="material-symbols-outlined text-sm">{{ icon }}</span> {{ label }}
+    </a>
+    {% endfor %}
+  </nav>
+  <div class="px-6 space-y-4 mt-auto">
+    <button class="w-full bg-error-container text-error py-3 rounded-sm font-headline text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-red-900/40 border border-error/20 transition-colors active:scale-95">
+      INITIATE LOCKDOWN
+    </button>
+    <div class="pt-4 border-t border-slate-800 space-y-2">
+      <a href="#" class="flex items-center gap-3 text-slate-500 hover:text-slate-300 py-1 transition-all">
+        <span class="material-symbols-outlined text-sm">help_center</span>
+        <span class="font-headline text-[10px] font-bold tracking-widest uppercase">SUPPORT</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 text-slate-500 hover:text-slate-300 py-1 transition-all">
+        <span class="material-symbols-outlined text-sm">power_settings_new</span>
+        <span class="font-headline text-[10px] font-bold tracking-widest uppercase">LOGOUT</span>
+      </a>
+    </div>
+  </div>
+</aside>
+
+<!-- Page Content -->
+<main class="pl-64 pt-16 min-h-screen">
+  {% block content %}{% endblock %}
+</main>
+
+<!-- Status Bar -->
+<footer class="fixed bottom-0 left-64 right-0 h-8 bg-slate-950 border-t border-white/5 z-30 flex items-center justify-between px-6">
+  <div class="flex items-center gap-6">
+    <div class="flex items-center gap-2">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+      <span id="sysStatusBar" class="text-[10px] font-mono text-emerald-500 uppercase tracking-widest">System Online</span>
+    </div>
+    <span class="text-[10px] font-mono text-slate-500 uppercase tracking-widest">AVG LATENCY: <span id="barLatency">—</span> ms</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <span class="text-[10px] font-mono text-slate-500 uppercase tracking-widest" id="barModel">—</span>
+    <span class="material-symbols-outlined text-slate-500 text-xs">sync_alt</span>
+  </div>
+</footer>
+
+<script>
+async function updateStatusBar(){
+  try{
+    const r=await fetch('/api/status'); const d=await r.json();
+    document.getElementById('barLatency').textContent=d.edge_mode?.avg_latency_ms??'—';
+    document.getElementById('barModel').textContent=d.model??'—';
+  }catch{}
+}
+setInterval(updateStatusBar,4000); updateStatusBar();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

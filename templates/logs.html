@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}EVIDENCE LOG | SENTINEL ALPHA{% endblock %}
+
+{% block content %}
+<div class="p-8 h-[calc(100vh-64px-32px)] flex flex-col overflow-hidden">
+  <!-- Header Section -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6 shrink-0">
+    <div>
+      <h1 class="text-4xl font-headline font-bold tracking-tighter text-on-surface mb-2">Evidence Log</h1>
+      <p class="text-on-surface-variant font-body text-sm max-w-md">Synchronized archival repository for all classified surveillance interceptions and tactical analysis logs.</p>
+    </div>
+    <!-- Filters -->
+    <div class="flex flex-wrap gap-2">
+      <button class="px-4 py-2 bg-secondary text-on-secondary text-xs font-bold tracking-widest rounded-sm uppercase transition-all">All Intercepts</button>
+      <button class="px-4 py-2 bg-surface-container-high text-on-surface-variant text-xs font-bold tracking-widest rounded-sm uppercase hover:bg-surface-variant transition-all">Handguns</button>
+      <button class="px-4 py-2 bg-surface-container-high text-on-surface-variant text-xs font-bold tracking-widest rounded-sm uppercase hover:bg-surface-variant transition-all">Knives</button>
+      <button id="refreshLogs" class="p-2 bg-surface-container-high text-emerald-400 rounded-sm hover:bg-emerald-500 hover:text-on-secondary transition-all">
+        <span class="material-symbols-outlined text-sm">refresh</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bento Grid Evidence Repository -->
+  <div id="logsGrid" class="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pr-2">
+    <!-- Entries populated via JS -->
+    <div class="col-span-full py-20 flex flex-col items-center justify-center opacity-40">
+      <span class="material-symbols-outlined text-6xl mb-4">folder_open</span>
+      <p class="font-mono text-xs uppercase tracking-widest">QUERYING_DATABASE...</p>
+    </div>
+  </div>
+
+  <!-- Footer Pagination (Mock) -->
+  <div class="mt-8 flex justify-between items-center border-t border-white/5 pt-6 shrink-0">
+    <div class="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+      Showing <span id="logCount">0</span> classified intercepted logs
+    </div>
+    <div class="flex gap-2">
+      <button class="p-2 bg-surface-container-high border border-white/5 hover:bg-surface-variant transition-all rounded">
+        <span class="material-symbols-outlined text-xs text-slate-500">chevron_left</span>
+      </button>
+      <button class="px-4 py-2 bg-secondary/10 border border-secondary text-secondary text-xs font-mono rounded-sm">1</button>
+      <button class="p-2 bg-surface-container-high border border-white/5 hover:bg-surface-variant transition-all rounded">
+        <span class="material-symbols-outlined text-xs text-slate-500">chevron_right</span>
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function loadLogs() {
+    const grid = document.getElementById('logsGrid');
+    try {
+      const res = await fetch('/evidence');
+      const logs = await res.json();
+      document.getElementById('logCount').textContent = logs.length;
+
+      if (logs.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-20 flex flex-col items-center justify-center opacity-40">
+            <span class="material-symbols-outlined text-6xl mb-4">folder_open</span>
+            <p class="font-mono text-xs uppercase tracking-widest">NO_LOGS_FOUND_IN_BUFFER</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = logs.reverse().map(l => {
+        const riskColor = l.risk_level === 'High' ? 'error' : (l.risk_level === 'Medium' ? 'secondary' : 'primary');
+        const ts = new Date(l.timestamp).toLocaleString();
+        return `
+          <div class="group relative bg-surface-container-low rounded-sm overflow-hidden border border-white/5 hover:border-emerald-500/20 transition-all duration-300">
+            <div class="relative aspect-video overflow-hidden">
+              <img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="/evidence/${l.image_file}" />
+              <div class="absolute inset-0 p-4 flex flex-col justify-between pointer-events-none">
+                <div class="flex justify-between items-start">
+                  <div class="bg-${riskColor}/20 border border-${riskColor} text-${riskColor} px-2 py-1 text-[10px] font-mono uppercase backdrop-blur-md">
+                    <span class="w-1.5 h-1.5 rounded-full bg-${riskColor} inline-block mr-1 animate-pulse"></span>
+                    ${l.risk_level} Risk
+                  </div>
+                  <div class="font-mono text-emerald-400 text-[9px] text-right drop-shadow-lg">
+                    LOC: [${l.bbox.join(',')}]
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="p-4 bg-surface-container-low">
+              <div class="flex justify-between items-start mb-4">
+                <div>
+                  <span class="font-mono text-xs text-on-surface-variant block mb-1">#ID-${l.id.slice(0,8)}</span>
+                  <h3 class="font-headline font-bold text-lg text-on-surface uppercase">${l.class_name} Capture</h3>
+                </div>
+                <div class="flex gap-2">
+                  <a href="/evidence/${l.image_file}" download class="p-2 bg-surface-container-highest text-secondary rounded hover:brightness-110 transition-all">
+                    <span class="material-symbols-outlined text-sm">download</span>
+                  </a>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Confidence</p>
+                  <p class="font-mono text-xs text-on-surface">${(l.confidence*100).toFixed(1)}%</p>
+                </div>
+                <div>
+                  <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Timestamp</p>
+                  <p class="font-mono text-xs text-on-surface">${ts}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  document.getElementById('refreshLogs').onclick = loadLogs;
+  loadLogs();
+</script>
+{% endblock %}

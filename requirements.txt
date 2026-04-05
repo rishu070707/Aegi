@@ -1,0 +1,12 @@
+# Core ML / CV
+ultralytics>=8.1.0
+opencv-python>=4.9.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# Web Server
+flask>=3.0.0
+werkzeug>=3.0.0
+
+# Utilities
+requests>=2.31.0

@@ -1,166 +1,509 @@
-import time
-import threading
-from flask import Flask, render_template, Response, jsonify
+"""
+app.py — Flask Application for Real-Time Multi-Class Weapon Detection System
+Full pipeline: CLAHE → YOLOv8s → Temporal Filter → EMA → Scene Filter →
+              ROI Check → Risk Score → Cooldown → Evidence Log → Stream
+"""
+
+import os
+import io
 import cv2
-from ultralytics import YOLO
-import random
-from datetime import datetime
 import copy
+import uuid
+import json
+import time
+import base64
+import threading
+import traceback
+import numpy as np
+from datetime import datetime
+from flask import (
+    Flask, render_template, Response, jsonify,
+    request, send_from_directory, abort
+)
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CONFIGURATION
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DEMO_MODE = False
+MODEL_PATH = "yolov8l.pt"   # Largest COCO model available for best accuracy
+PERSON_MODEL_PATH = "yolov8n.pt"
+EVIDENCE_DIR = os.path.join(os.path.dirname(__file__), "evidence_logs")
+FEEDBACK_DIR = os.path.join(os.path.dirname(__file__), "feedback_data")
+
+os.makedirs(EVIDENCE_DIR, exist_ok=True)
+os.makedirs(FEEDBACK_DIR, exist_ok=True)
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# IMPORT MODULES
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+from detector import WeaponDetector
+from post_processing.temporal_filter import TemporalConsistencyFilter
+from post_processing.confidence_stabilizer import ConfidenceStabilizer
+from post_processing.risk_scorer import RiskScorer
+from post_processing.scene_filter import SceneAwareFilter
+from post_processing.roi_monitor import ROIMonitor
+from post_processing.evidence_logger import EvidenceLogger
+from post_processing.alert_cooldown import AlertCooldown
+from post_processing.edge_mode import EdgeModeManager
+from post_processing.feedback_loop import FeedbackLoop
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# FLASK APP
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 MB upload limit
 
-# Switched to the Large model (yolov8l.pt) for substantially higher accuracy
-model = YOLO("yolov8l.pt")
-class_colors = {}
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# GLOBAL PIPELINE COMPONENTS
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+detector     = WeaponDetector()   # auto-selects best model (weapon_model.pt > yolov8l.pt > yolov8s.pt)
+temporal     = TemporalConsistencyFilter(window_size=5, min_hits=3, min_confidence=0.30)
+stabilizer   = ConfidenceStabilizer(alpha=0.4)
+risk_scorer  = RiskScorer(w1=0.5, w2=0.3, w3=0.2)
+scene_filter = SceneAwareFilter(PERSON_MODEL_PATH, conf_threshold=0.25)
+roi_monitor  = ROIMonitor()
+ev_logger    = EvidenceLogger(EVIDENCE_DIR)
+cooldown     = AlertCooldown(cooldown_seconds=5.0)
+edge_mgr     = EdgeModeManager()
+feedback     = FeedbackLoop(FEEDBACK_DIR)
 
-# Global variable to store the latest logs/notifications
-detection_logs = []
-weapon_detected_state = {"status": False, "timestamp": 0}
+SESSION_ID = str(uuid.uuid4())[:8]
 
-# Common weapon keywords (handles COCO 'knife', 'baseball bat' as well as custom class names)
-WEAPON_KEYWORDS = ['knife', 'gun', 'weapon', 'pistol', 'rifle', 'firearm', 'sword', 'scissors']
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# WEBCAM STREAMING STATE
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+stream_lock   = threading.Lock()
+latest_frame  = None
+latest_boxes  = []
+cam_error     = None
+webcam_active = False
+stream_thread_handle = None
 
-# ----------------------------------------------------
-# MULTI-THREADING ARCHITECTURE FOR FPS OPTIMIZATION
-# ----------------------------------------------------
-# To completely eliminate "video lag", we decouple the WebCam reading 
-# and the YOLO inference into separate hardware threads.
-latest_frame = None
-latest_boxes = []
-lock = threading.Lock()
 
-def capture_thread():
-    """ Runs constantly to pull the absolute newest frame from the webcam at ~30 FPS """
-    global latest_frame
-    cap = cv2.VideoCapture(0)
-    # Crucial for reducing queue lag
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1) 
-    
-    while True:
-        success, frame = cap.read()
-        if success:
-            with lock:
-                latest_frame = frame.copy()
-        time.sleep(0.01) # Small sleep to prevent CPU hogging
+def _run_full_pipeline(frame: np.ndarray, temp_filter=None) -> tuple:
+    """
+    Execute the full 10-step detection pipeline on a single frame.
+    Returns (annotated_frame, detections_list, latency_ms)
+    """
+    # 1. Detect (includes CLAHE preprocessing)
+    raw_detections, latency = detector.detect(frame)
 
-def inference_thread():
-    """ Grabs the latest frame and runs YOLO at maximum capacity without freezing the video """
-    global latest_frame, latest_boxes, detection_logs, weapon_detected_state
-    
-    while True:
-        frame_to_process = None
-        with lock:
+    # 2. Temporal Consistency Filter (if provided)
+    if temp_filter is not None:
+        raw_detections = temp_filter.update(raw_detections)
+
+    # 3. EMA Confidence Stabilization
+    for det in raw_detections:
+        det["confidence"] = stabilizer.smooth(det["class_name"], det["confidence"])
+
+    # 4. Scene-Aware Filter (person co-occurrence)
+    filtered = scene_filter.filter(raw_detections, frame)
+
+    # 5. ROI FILTERING + Risk Scoring
+    # If ROI zones are defined: ONLY keep detections whose centroid is inside a zone
+    roi_zones_active = len(roi_monitor.get_roi()) > 0
+    annotated_dets = []
+    for det in filtered:
+        in_roi = roi_monitor.check_roi(det["bbox"], frame.shape)
+
+        # ---> ROI GATE: drop detections outside ROI when zones are defined
+        if roi_zones_active and not in_roi:
+            continue
+
+        risk_result = risk_scorer.score(det, frame.shape, in_roi=in_roi)
+        det.update(risk_result)
+        det["in_roi"] = in_roi
+
+        # 6. Alert Cooldown + Evidence Log
+        region_key = "roi" if in_roi else "global"
+        det_id = f"{det['class_name']}_{SESSION_ID}_{int(time.time()*1000)}"
+        det["detection_id"] = det_id
+        feedback.register_detection(det_id, det)
+
+        do_alert = cooldown.should_alert(det["class_name"], region_key)
+        det["alerted"] = do_alert
+
+        if do_alert and det["risk_level"] in ("High", "Medium"):
+            ann = detector.draw_detections(frame, [det])
+            ev_logger.log(ann, det, risk_result, SESSION_ID, roi_zone=roi_monitor.get_roi())
+
+        annotated_dets.append(det)
+
+    # 7. Edge Mode -- only adapts input resolution, NEVER swaps model file
+    edge_cfg = edge_mgr.check_and_adapt(latency)
+    if edge_cfg.get("mode_changed") and edge_cfg.get("model_variant") is not None:
+        detector.switch_model(edge_cfg["model_variant"], edge_cfg["input_size"])
+    elif edge_cfg.get("mode_changed"):
+        detector.input_size = edge_cfg["input_size"]
+
+    # 8. Draw ROI overlay then detections
+    annotated_frame = roi_monitor.draw_roi(frame)
+    annotated_frame = detector.draw_detections(annotated_frame, annotated_dets)
+
+    return annotated_frame, annotated_dets, latency
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# WEBCAM THREADS
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def capture_thread_fn():
+    global latest_frame, cam_error, webcam_active
+    cap = None
+    try:
+        cap = cv2.VideoCapture(0)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        if not cap.isOpened():
+            cam_error = "No webcam device found. Please connect a camera."
+            webcam_active = False
+            return
+        cam_error = None
+        while webcam_active:
+            ret, frame = cap.read()
+            if ret:
+                with stream_lock:
+                    latest_frame = frame.copy()
+            time.sleep(0.03)
+    except Exception as e:
+        cam_error = str(e)
+    finally:
+        if cap:
+            cap.release()
+        webcam_active = False
+
+
+def inference_thread_fn():
+    global latest_frame, latest_boxes, webcam_active
+    local_temporal = TemporalConsistencyFilter(window_size=3, min_hits=1, min_confidence=0.25)
+    while webcam_active:
+        frame_copy = None
+        with stream_lock:
             if latest_frame is not None:
-                frame_to_process = latest_frame.copy()
-        
-        if frame_to_process is not None:
-            # We process at standard 640 resolution for high accuracy
-            results = model(frame_to_process, imgsz=640, conf=0.25, iou=0.45)[0]
-            names = results.names
-            
-            new_boxes = []
-            current_weapons = []
-            
-            for box, cls, conf in zip(results.boxes.xyxy, results.boxes.cls, results.boxes.conf):
-                cls_id = int(cls)
-                label_name = names[cls_id].lower()
-                
-                # Check for weapons for notification system
-                is_weapon = any(word in label_name for word in WEAPON_KEYWORDS)
-                
-                if is_weapon:
-                    current_weapons.append(label_name)
-                    # Add to logs if not logged recently (debounce notifications)
-                    if len(detection_logs) == 0 or (time.time() - weapon_detected_state["timestamp"] > 3):
-                        log_msg = f"[{datetime.now().strftime('%H:%M:%S')}] 🚨 WEAPON DETECTED: {label_name.upper()} ({conf:.2f})"
-                        detection_logs.insert(0, log_msg)
-                        if len(detection_logs) > 20: # keep last 20 logs
-                            detection_logs.pop()
-                
-                new_boxes.append((box, cls_id, float(conf), label_name, is_weapon))
-            
-            with lock:
-                latest_boxes = new_boxes
-                
-            if current_weapons:
-                weapon_detected_state["status"] = True
-                weapon_detected_state["timestamp"] = time.time()
-            elif time.time() - weapon_detected_state["timestamp"] > 2:
-                # Clear red alert after 2 seconds
-                weapon_detected_state["status"] = False
-                
-        # To avoid maxing out 100% of all CPU cores, we rest slightly.
-        time.sleep(0.05) 
+                frame_copy = latest_frame.copy()
+        if frame_copy is not None:
+            try:
+                _, dets, _ = _run_full_pipeline(frame_copy, temp_filter=local_temporal)
+                with stream_lock:
+                    latest_boxes = copy.deepcopy(dets)
+            except Exception:
+                pass
+        time.sleep(0.05)
 
-# Start background threads before any Flask requests hit
-t_cap = threading.Thread(target=capture_thread, daemon=True)
-t_cap.start()
 
-t_inf = threading.Thread(target=inference_thread, daemon=True)
-t_inf.start()
-
-# ----------------------------------------------------
-# FLASK ROUTING HTTP SERVER
-# ----------------------------------------------------
-
-def generate_frames():
-    """ Streams the latest frame from the capture thread, overlaid with boxes from the inference thread """
+def generate_stream():
+    """MJPEG generator for the live webcam stream."""
+    global latest_frame, latest_boxes, cam_error
     while True:
-        display_frame = None
-        boxes_to_draw = []
-        
-        with lock:
-            if latest_frame is not None:
-                display_frame = latest_frame.copy()
-                boxes_to_draw = copy.deepcopy(latest_boxes)
-                
-        if display_frame is not None:
-            # Draw bounding boxes (either newly detected or cached from last YOLO infer)
-            for box, cls_id, conf, label_name, is_weapon in boxes_to_draw:
-                label = f"{label_name.capitalize()} {conf:.2f}"
-                
-                if is_weapon:
-                    color = (0, 0, 255) # Red for weapons
-                    # Flash border on the video frame
-                    cv2.rectangle(display_frame, (0, 0), (display_frame.shape[1], display_frame.shape[0]), color, 8) 
-                    cv2.putText(display_frame, "WEAPON ALERT", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
-                else:
-                    if cls_id not in class_colors:
-                        class_colors[cls_id] = [random.randint(0,255) for _ in range(3)]
-                    color = class_colors[cls_id]
-                
-                x1, y1, x2, y2 = map(int, box)
-                cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, 2)
-                cv2.putText(display_frame, label, (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-            
-            # Encode frame as JPEG
-            ret, buffer = cv2.imencode('.jpg', display_frame)
-            frame_bytes = buffer.tobytes()
-            
-            # Yield frame over HTTP stream
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-                   
-        # Cap HTTP streaming output to ~30 FPS to save bandwidth while still looking butter smooth
-        time.sleep(0.033) 
+        display = None
+        boxes = []
 
-@app.route('/')
+        if cam_error:
+            # Generate error frame
+            err_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+            cv2.putText(err_frame, "Camera Error:", (20, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+            cv2.putText(err_frame, cam_error[:60], (20, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1)
+            display = err_frame
+        else:
+            with stream_lock:
+                if latest_frame is not None:
+                    display = latest_frame.copy()
+                    boxes = copy.deepcopy(latest_boxes)
+
+        if display is None:
+            # Waiting for webcam
+            display = np.zeros((480, 640, 3), dtype=np.uint8)
+            cv2.putText(display, "Waiting for camera...", (140, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (100, 100, 255), 2)
+
+        # Draw detections on display frame
+        display = roi_monitor.draw_roi(display)
+        display = detector.draw_detections(display, boxes)
+
+        ret, buffer = cv2.imencode(".jpg", display, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        if ret:
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n"
+                + buffer.tobytes()
+                + b"\r\n"
+            )
+        time.sleep(0.033)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ROUTES
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html", active="dashboard")
 
-@app.route('/api/status')
-def status():
-    global weapon_detected_state
+
+@app.route("/live")
+def live_page():
+    return render_template("live.html", active="live")
+
+
+@app.route("/camera")
+def camera_page():
+    return render_template("camera.html", active="camera")
+
+
+@app.route("/logs")
+def logs_page():
+    return render_template("logs.html", active="logs")
+
+
+@app.route("/video")
+def video_page():
+    return render_template("video.html", active="video")
+
+
+@app.route("/detect/image", methods=["POST"])
+def detect_image():
+    """
+    Accept an uploaded image file, run full pipeline, return:
+    - Annotated image (base64 encoded)
+    - Detection JSON list
+    """
+    if "image" not in request.files:
+        return jsonify({"error": "No image file provided"}), 400
+
+    file = request.files["image"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename"}), 400
+
+    try:
+        img_bytes = file.read()
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return jsonify({"error": "Cannot decode image"}), 400
+
+        # Full pipeline (no temporal filter for single image)
+        annotated, detections, latency = _run_full_pipeline(frame)
+
+        # Encode annotated image to base64
+        _, buffer = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        img_b64 = base64.b64encode(buffer).decode("utf-8")
+
+        # Sanitize detections for JSON (remove numpy types)
+        clean_dets = []
+        for d in detections:
+            clean_dets.append({
+                "class_name":    d.get("class_name"),
+                "confidence":    round(float(d.get("confidence", 0)), 3),
+                "bbox":          [int(v) for v in d.get("bbox", [])],
+                "risk_score":    round(float(d.get("risk_score", 0)), 3),
+                "risk_level":    d.get("risk_level", "Low"),
+                "in_roi":        bool(d.get("in_roi", False)),
+                "detection_id":  d.get("detection_id", ""),
+            })
+
+        return jsonify({
+            "image": img_b64,
+            "detections": clean_dets,
+            "latency_ms": round(latency, 2),
+            "total": len(clean_dets),
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/detect/video", methods=["POST"])
+def detect_video():
+    """
+    Accept a video file, process all frames, return annotated video as download.
+    Streams progress via Server-Sent Events is out of scope here; we just process.
+    """
+    if "video" not in request.files:
+        return jsonify({"error": "No video file provided"}), 400
+
+    file = request.files["video"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename"}), 400
+
+    try:
+        ext = os.path.splitext(file.filename)[1].lower() or ".mp4"
+        in_path = os.path.join(EVIDENCE_DIR, f"upload_{SESSION_ID}{ext}")
+        out_path = os.path.join(EVIDENCE_DIR, f"output_{SESSION_ID}.mp4")
+        file.save(in_path)
+
+        cap = cv2.VideoCapture(in_path)
+        if not cap.isOpened():
+            return jsonify({"error": "Cannot open video file"}), 400
+
+        fps = cap.get(cv2.CAP_PROP_FPS) or 25
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        out = cv2.VideoWriter(out_path, fourcc, fps, (w, h))
+
+        # Strict temporal filter for video: window=7, min_hits=3, conf=0.45
+        # Suppresses single-frame false positives (cars, objects as knife etc.)
+        local_temporal = TemporalConsistencyFilter(window_size=7, min_hits=3, min_confidence=0.45)
+        frame_idx = 0
+        all_detections = []
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            annotated, dets, _ = _run_full_pipeline(frame, temp_filter=local_temporal)
+            out.write(annotated)
+            for d in dets:
+                all_detections.append({
+                    "frame": frame_idx,
+                    "class_name": d.get("class_name"),
+                    "confidence": round(float(d.get("confidence", 0)), 3),
+                    "risk_level": d.get("risk_level", "Low"),
+                })
+            frame_idx += 1
+
+        cap.release()
+        out.release()
+        try:
+            os.remove(in_path)
+        except Exception:
+            pass
+
+        out_filename = os.path.basename(out_path)
+        return jsonify({
+            "download_url": f"/evidence/{out_filename}",
+            "frames_processed": frame_idx,
+            "total_detections": len(all_detections),
+            "detections_summary": all_detections[:100],  # cap response size
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/stream/start", methods=["POST"])
+def stream_start():
+    global webcam_active, stream_thread_handle, cam_error
+    if webcam_active:
+        return jsonify({"status": "already_running"})
+    cam_error = None
+    webcam_active = True
+    t_cap = threading.Thread(target=capture_thread_fn, daemon=True)
+    t_cap.start()
+    t_inf = threading.Thread(target=inference_thread_fn, daemon=True)
+    t_inf.start()
+    return jsonify({"status": "started"})
+
+
+@app.route("/stream/stop", methods=["POST"])
+def stream_stop():
+    global webcam_active, latest_frame, latest_boxes
+    webcam_active = False
+    with stream_lock:
+        latest_frame = None
+        latest_boxes = []
+    return jsonify({"status": "stopped"})
+
+
+@app.route("/stream")
+def stream():
+    return Response(generate_stream(), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+
+@app.route("/feedback", methods=["POST"])
+def record_feedback():
+    data = request.get_json(force=True, silent=True) or {}
+    detection_id = data.get("detection_id", "")
+    label = data.get("label", "")
+    if not detection_id or label not in ("correct", "incorrect"):
+        return jsonify({"error": "Provide detection_id and label (correct/incorrect)"}), 400
+    ok = feedback.record_feedback(detection_id, label)
+    return jsonify({"status": "ok" if ok else "error"})
+
+
+@app.route("/feedback/stats")
+def feedback_stats():
+    return jsonify(feedback.get_feedback_stats())
+
+
+@app.route("/set_roi", methods=["POST"])
+def set_roi():
+    """Accept ROI zones as JSON array of polygons (normalized [x,y] points)."""
+    data = request.get_json(force=True, silent=True) or {}
+    zones = data.get("zones", [])
+    roi_monitor.set_roi(zones)
+    return jsonify({"status": "ok", "zones_set": len(zones)})
+
+
+@app.route("/clear_roi", methods=["POST"])
+def clear_roi():
+    roi_monitor.clear_roi()
+    return jsonify({"status": "ok"})
+
+
+@app.route("/evidence")
+def list_evidence():
+    entries = ev_logger.list_evidence()
+    return jsonify(entries)
+
+
+@app.route("/evidence/<path:filename>")
+def serve_evidence(filename):
+    # Serve both png/json evidence and output videos
+    full_path = os.path.join(EVIDENCE_DIR, filename)
+    if not os.path.exists(full_path):
+        abort(404)
+    return send_from_directory(EVIDENCE_DIR, filename)
+
+
+@app.route("/api/status")
+def api_status():
+    """Return current system status metrics."""
+    with stream_lock:
+        boxes = copy.deepcopy(latest_boxes)
+    stats = edge_mgr.get_stats()
+    model_name = os.path.basename(detector.model_path) if detector.model_path else "unknown"
     return jsonify({
-        "weapon_detected": weapon_detected_state["status"],
-        "logs": detection_logs
+        "demo_mode":        False,
+        "model":            model_name,
+        "model_is_custom":  detector.is_custom,
+        "session_id":       SESSION_ID,
+        "webcam_active":    webcam_active,
+        "cam_error":        cam_error,
+        "active_detections": len(boxes),
+        "edge_mode":        stats,
+        "roi_zones":        len(roi_monitor.get_roi()),
     })
 
-@app.route('/video_feed')
-def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route("/api/live_detections")
+def live_detections():
+    """Return current live detection list for the status panel."""
+    with stream_lock:
+        boxes = copy.deepcopy(latest_boxes)
+    clean = []
+    for d in boxes:
+        clean.append({
+            "class_name":   d.get("class_name"),
+            "confidence":   round(float(d.get("confidence", 0)), 3),
+            "risk_level":   d.get("risk_level", "Low"),
+            "risk_score":   round(float(d.get("risk_score", 0)), 3),
+            "detection_id": d.get("detection_id", ""),
+        })
+    return jsonify(clean)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ENTRY POINT
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 if __name__ == "__main__":
-    # Start Real-time Flask Server
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False) 
-    # use_reloader=False prevents Flask from running dual threads and messing up our cv2 camera lock
+    print("=" * 60)
+    print("  Weapon Detection System")
+    print(f"  Session: {SESSION_ID} | Demo Mode: {DEMO_MODE}")
+    print("  Navigate to: http://localhost:5000")
+    print("=" * 60)
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False, threaded=True)
