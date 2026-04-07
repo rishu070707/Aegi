@@ -1,6 +1,6 @@
 # Real-Time Multi-Class Weapon Detection System
 
-> **mAP@50 = 0.961 · FP Reduction = 64.2% · Latency Overhead = 5.8ms**
+> **Accuracy (mAP@50) = 88.57% · FP Reduction = 64.2% · Latency Overhead = 5.8ms**
 
 A production-ready, real-time weapon detection system built on YOLOv8s with a Flask-based multi-modal deployment platform. Detects four weapon classes — **Handgun, Knife, Rifle, Shotgun** — from images, videos, and live webcam streams, with a full 10-stage advanced post-processing pipeline.
 
@@ -75,19 +75,38 @@ object detection project/
 
 ---
 
-## Setup & Installation
+## Easy Start (Recommended)
 
-### 1. Install Dependencies
+### 1. Create and activate a virtual environment
+
+#### Windows (PowerShell)
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+#### Linux/macOS
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 2. Install dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Run the Application
+### 3. Run the app
+
 ```bash
 python app.py
 ```
 
-### 3. Open in Browser
+### 4. Open the dashboard
+
 Navigate to: **http://localhost:5000**
 
 ---
@@ -97,6 +116,7 @@ Navigate to: **http://localhost:5000**
 This repository can consume merged weapon datasets from multiple sources and fine-tune a YOLO model for better real-world weapon detection.
 
 ### 1. Download dataset sources
+
 You can manually download and export the following sources in YOLO format:
 
 1. Google Open Images (Weapon classes): https://storage.googleapis.com/openimages/web/index.html
@@ -109,7 +129,9 @@ You can manually download and export the following sources in YOLO format:
 8. Kaggle weapon detection search results: https://www.kaggle.com/search?q=weapon+detection
 
 ### 2. Merge sources
+
 Place each dataset in its own folder and run:
+
 ```bash
 python scripts/prepare_weapon_dataset.py \
   --sources ./data/openimages ./data/ari-dasci ./data/roboflow-top ./data/roboflow-special ./data/kaggle-weapon ./data/kaggle-guns \
@@ -127,7 +149,9 @@ This will create:
 - `./data/weapon_combined/weapon_data.yaml`
 
 ### 3. Train a custom model
+
 Train on the merged dataset with:
+
 ```bash
 python scripts/train_weapon_model.py \
   --data ./data/weapon_combined/weapon_data.yaml \
@@ -138,10 +162,13 @@ python scripts/train_weapon_model.py \
 ```
 
 ### 4. Deploy the new weights
+
 After training, copy the best checkpoint into the repo root:
+
 ```bash
 cp runs/train/weapon_finetune/weights/best.pt weapon_model.pt
 ```
+
 Then restart the app.
 
 If you want a single-keypoint dataset merge for all eight sources, make sure each downloaded dataset is converted to YOLO format before running `prepare_weapon_dataset.py`.
@@ -151,6 +178,7 @@ If you want a single-keypoint dataset merge for all eight sources, make sure eac
 ## Usage
 
 ### 📷 Image Detection
+
 1. Click the **Image** tab
 2. Drag & drop or click to upload a JPG/PNG/BMP image
 3. Click **Run Detection**
@@ -158,12 +186,14 @@ If you want a single-keypoint dataset merge for all eight sources, make sure eac
 5. Use ✓/✗ buttons to provide operator feedback
 
 ### 🎬 Video Processing
+
 1. Click the **Video** tab
 2. Upload an MP4/AVI/MOV video (up to 500 MB)
 3. Click **Process Video**
 4. Download the annotated output video with all detections drawn per-frame
 
 ### 📹 Live Webcam
+
 1. Click the **Live Webcam** tab
 2. Click **Start Stream**
 3. Live MJPEG feed with real-time detections overlaid
@@ -174,6 +204,7 @@ If you want a single-keypoint dataset merge for all eight sources, make sure eac
 5. Active detections panel shows class, confidence, and risk level in real-time
 
 ### 📁 Evidence Log
+
 - Auto-saved PNG snapshots + JSON metadata for all High/Medium risk confirmed detections
 - View thumbnails and download individual evidence files from the **Evidence Log** tab
 
@@ -181,25 +212,25 @@ If you want a single-keypoint dataset merge for all eight sources, make sure eac
 
 ## Post-Processing Pipeline Details
 
-| Module | Description |
-|--------|-------------|
-| **Temporal Filter** | Requires same class in ≥3/5 consecutive frames (conf ≥ 0.30) |
-| **EMA Stabilizer** | Per-class confidence smoothing: S(t) = 0.4·C(t) + 0.6·S(t-1) |
-| **Scene Filter** | Person proximity multiplier ψ: 1.0 (co-located), 0.75 (present), 0.50 (absent) |
-| **Risk Scorer** | R = 0.5·Cs + 0.3·As + 0.2·Ps → Low/Medium/High |
-| **Alert Cooldown** | 5s per (class × region) to prevent alert fatigue |
-| **Edge Mode** | Auto-switches to YOLOv8n/512 if latency > 40ms |
+| Module              | Description                                                                    |
+| ------------------- | ------------------------------------------------------------------------------ |
+| **Temporal Filter** | Requires same class in ≥3/5 consecutive frames (conf ≥ 0.30)                   |
+| **EMA Stabilizer**  | Per-class confidence smoothing: S(t) = 0.4·C(t) + 0.6·S(t-1)                   |
+| **Scene Filter**    | Person proximity multiplier ψ: 1.0 (co-located), 0.75 (present), 0.50 (absent) |
+| **Risk Scorer**     | R = 0.5·Cs + 0.3·As + 0.2·Ps → Low/Medium/High                                 |
+| **Alert Cooldown**  | 5s per (class × region) to prevent alert fatigue                               |
+| **Edge Mode**       | Auto-switches to YOLOv8n/512 if latency > 40ms                                 |
 
 ---
 
 ## Performance Metrics (Paper)
 
-| Metric | Value |
-|--------|-------|
-| mAP@50 | **96.1%** |
-| False Positive Reduction | **64.2%** |
-| Post-Processing Latency Overhead | **5.8 ms** |
-| Target Classes | Handgun, Knife, Rifle, Shotgun |
+| Metric                           | Value                          |
+| -------------------------------- | ------------------------------ |
+| Accuracy (mAP@50)                | **88.57%**                     |
+| False Positive Reduction         | **64.2%**                      |
+| Post-Processing Latency Overhead | **5.8 ms**                     |
+| Target Classes                   | Handgun, Knife, Rifle, Shotgun |
 
 ---
 
@@ -209,6 +240,7 @@ The application runs in **demo mode** by default (`DEMO_MODE = True` in `app.py`
 In demo mode, synthetic weapon detections are injected to allow full pipeline testing without custom model weights.
 
 To use a fine-tuned weapon detection model:
+
 1. Set `DEMO_MODE = False` in `app.py`
 2. Replace `yolov8s.pt` with your fine-tuned model path
 3. Update `MODEL_PATH` in `app.py` accordingly
@@ -217,18 +249,18 @@ To use a fine-tuned weapon detection model:
 
 ## API Endpoints
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/` | Dashboard UI |
-| POST | `/detect/image` | Detect weapons in uploaded image |
-| POST | `/detect/video` | Process uploaded video |
-| POST | `/stream/start` | Start webcam capture threads |
-| POST | `/stream/stop` | Stop webcam capture |
-| GET | `/stream` | MJPEG webcam stream |
-| POST | `/feedback` | Record operator feedback |
-| POST | `/set_roi` | Set ROI zone polygon coordinates |
-| POST | `/clear_roi` | Clear all ROI zones |
-| GET | `/evidence` | List all evidence entries |
-| GET | `/evidence/<file>` | Serve evidence image/video file |
-| GET | `/api/status` | System status JSON |
-| GET | `/api/live_detections` | Current live detection list |
+| Method | Route                  | Description                      |
+| ------ | ---------------------- | -------------------------------- |
+| GET    | `/`                    | Dashboard UI                     |
+| POST   | `/detect/image`        | Detect weapons in uploaded image |
+| POST   | `/detect/video`        | Process uploaded video           |
+| POST   | `/stream/start`        | Start webcam capture threads     |
+| POST   | `/stream/stop`         | Stop webcam capture              |
+| GET    | `/stream`              | MJPEG webcam stream              |
+| POST   | `/feedback`            | Record operator feedback         |
+| POST   | `/set_roi`             | Set ROI zone polygon coordinates |
+| POST   | `/clear_roi`           | Clear all ROI zones              |
+| GET    | `/evidence`            | List all evidence entries        |
+| GET    | `/evidence/<file>`     | Serve evidence image/video file  |
+| GET    | `/api/status`          | System status JSON               |
+| GET    | `/api/live_detections` | Current live detection list      |
