@@ -57,7 +57,7 @@ app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 MB upload limit
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # GLOBAL PIPELINE COMPONENTS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-detector     = WeaponDetector()   # auto-selects best model (weapon_model.pt > yolov8l.pt > yolov8s.pt)
+detector     = WeaponDetector(model_path=MODEL_PATH)
 temporal     = TemporalConsistencyFilter(window_size=5, min_hits=3, min_confidence=0.30)
 stabilizer   = ConfidenceStabilizer(alpha=0.4)
 risk_scorer  = RiskScorer(w1=0.5, w2=0.3, w3=0.2)
@@ -86,6 +86,7 @@ def _run_full_pipeline(
     temp_filter=None,
     ignore_roi=False,
     bypass_scene=False,
+    bypass_ema=False,
     inference_imgsz: int | None = None,
 ) -> tuple:
     """
@@ -105,8 +106,9 @@ def _run_full_pipeline(
         raw_detections = temp_filter.update(raw_detections)
 
     # 3. EMA Confidence Stabilization
-    for det in raw_detections:
-        det["confidence"] = stabilizer.smooth(det["class_name"], det["confidence"])
+    if not bypass_ema:
+        for det in raw_detections:
+            det["confidence"] = stabilizer.smooth(det["class_name"], det["confidence"])
 
     # 4. Scene-Aware Filter (skipped for analytics uploads)
     if bypass_scene:
@@ -193,7 +195,7 @@ def capture_thread_fn():
 
 def inference_thread_fn():
     global latest_frame, latest_boxes, webcam_active
-    local_temporal = TemporalConsistencyFilter(window_size=3, min_hits=1, min_confidence=0.25)
+    local_temporal = TemporalConsistencyFilter(window_size=5, min_hits=2, min_confidence=0.20)
     while webcam_active:
         frame_copy = None
         with stream_lock:
@@ -204,8 +206,10 @@ def inference_thread_fn():
                 _, dets, _ = _run_full_pipeline(frame_copy, temp_filter=local_temporal)
                 with stream_lock:
                     latest_boxes = copy.deepcopy(dets)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[InferenceThread] Pipeline Error: {e}")
+                import traceback
+                traceback.print_exc()
         time.sleep(0.05)
 
 
@@ -307,11 +311,12 @@ def detect_image():
                 }
             ), 400
 
-        # Full pipeline: no temporal, no ROI gate, no scene filter (still photos)
+        # Full pipeline: no temporal, no EMA, no ROI gate, no scene filter (still photos)
         annotated, detections, latency = _run_full_pipeline(
             frame,
             ignore_roi=True,
             bypass_scene=True,
+            bypass_ema=True,
             inference_imgsz=640,
         )
 
@@ -425,9 +430,9 @@ def detect_video():
                 pass
             return jsonify({"error": "Cannot create output video"}), 500
 
-        # Light temporal smoothing; per-frame model output still visible quickly
+        # Robust temporal smoothing for video files
         local_temporal = TemporalConsistencyFilter(
-            window_size=2, min_hits=1, min_confidence=0.28
+            window_size=5, min_hits=3, min_confidence=0.28
         )
         frame_idx = 0
         all_detections = []

@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-04-08T18:06:12.625288+00:00",
+  "class": "Knife",
+  "confidence": 0.3889,
+  "bbox": [
+    139,
+    138,
+    250,
+    476
+  ],
+  "risk_score": 0.4311,
+  "risk_level": "Medium",
+  "roi_zone": [],
+  "session_id": "f6382b13",
+  "frame_file": "alert_2026_04_08_18_06_12_Knife_Medium.png"
+}

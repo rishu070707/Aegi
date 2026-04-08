@@ -46,7 +46,8 @@ const Sentinel = {
     if (totalMet) totalMet.textContent = dets.length;
 
     if (dets.length === 0) {
-      list.innerHTML = '<p class="text-center py-8 text-slate-600 font-mono text-[10px]">AWAITING_DATA_STREAM...</p>';
+      const msg = this.streamActive ? 'SYSTEM_ARMED // SCANNING... NO_OBJECTS_DETECTED' : 'AWAITING_DATA_STREAM...';
+      list.innerHTML = `<p class="text-center py-8 text-slate-600 font-mono text-[10px]">${msg}</p>`;
       return;
     }
 
@@ -97,6 +98,11 @@ const Sentinel = {
   },
 
   async toggleStream() {
+    const img = document.getElementById('mainFeed');
+    const placeholder = document.getElementById('feedPlaceholder');
+    const icon = document.getElementById('toggleIcon');
+    const label = document.getElementById('streamStatusLabel');
+
     if (!this.streamActive) {
       try {
         await fetch('/stream/start', { method: 'POST' });
@@ -107,15 +113,20 @@ const Sentinel = {
       try {
         await fetch('/stream/stop', { method: 'POST' });
         this.streamActive = false;
-        img.src = '';
-        img.classList.add('hidden');
-        placeholder.classList.remove('hidden');
-        icon.textContent = 'play_circle';
-        label.textContent = 'REC [OFF] STANDBY';
-        label.classList.remove('text-emerald-500');
-        label.classList.add('text-slate-500');
+        if (img) {
+            img.src = '';
+            img.classList.add('hidden');
+        }
+        if (placeholder) placeholder.classList.remove('hidden');
+        if (icon) icon.textContent = 'play_circle';
+        if (label) {
+            label.textContent = 'REC [OFF] STANDBY';
+            label.classList.remove('text-emerald-500');
+            label.classList.add('text-slate-500');
+        }
         
         clearInterval(this.liveInterval);
+        this.liveInterval = null;
         this.renderLiveDetections([]);
       } catch(e) { console.error(e); }
     }

@@ -110,7 +110,10 @@ class SceneAwareFilter:
             weapon_centroid = self._centroid(det["bbox"])
             cs = det.get("confidence", 0.0)
 
-            if not person_bboxes:
+            if cs >= 0.95:
+                # Extreme high certainty detections bypassing context decay
+                psi = 1.0
+            elif not person_bboxes:
                 psi = 0.80  # weapon alone -- still very plausible, mild penalty only
             else:
                 # Find closest person

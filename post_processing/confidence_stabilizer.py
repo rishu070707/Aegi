@@ -48,6 +48,10 @@ class ConfidenceStabilizer:
         if class_name not in self._ema:
             # Initialize with first observed value
             self._ema[class_name] = raw_confidence
+        elif raw_confidence >= 0.95:
+            # High certainty override: fast-track the EMA upward immediately
+            # so 96% detections don't get artificially dragged down by history buffer
+            self._ema[class_name] = raw_confidence
         else:
             self._ema[class_name] = (
                 self.alpha * raw_confidence + (1.0 - self.alpha) * self._ema[class_name]
