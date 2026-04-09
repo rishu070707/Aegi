@@ -6,8 +6,8 @@ Checks spatial proximity of weapon bbox centroid to person bbox centroid.
 
 Context multiplier psi rules:
   Weapon + Human co-located (norm. distance < 0.3): psi = 1.0   (confirmed threat)
-  Weapon + Human present but not proximate:         psi = 0.85  (probable threat)
-  Weapon alone in frame (no person detected):       psi = 0.80  (still plausible)
+  Weapon + Human present but not proximate:         psi = 0.75  (probable threat)
+  Weapon alone in frame (no person detected):       psi = 0.50  (still plausible)
 
 effective_confidence = Cs * ψ
 Suppress if effective_confidence < inference threshold (0.25)
@@ -114,7 +114,7 @@ class SceneAwareFilter:
                 # Extreme high certainty detections bypassing context decay
                 psi = 1.0
             elif not person_bboxes:
-                psi = 0.80  # weapon alone -- still very plausible, mild penalty only
+                psi = 0.50  # weapon alone
             else:
                 # Find closest person
                 distances = [
@@ -127,14 +127,14 @@ class SceneAwareFilter:
                 if min_dist < self.proximity_threshold:
                     psi = 1.0
                 else:
-                    psi = 0.85
+                    psi = 0.75
 
             effective_conf = round(cs * psi, 4)
             det = dict(det)
             det["effective_confidence"] = effective_conf
             det["psi"] = psi
 
-            if effective_conf >= 0.20:  # keep anything the model is at least 20% confident in
+            if effective_conf >= self.conf_threshold:
                 filtered.append(det)
 
         return filtered

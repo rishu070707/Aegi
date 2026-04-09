@@ -26,7 +26,7 @@ from flask import (
 # CONFIGURATION
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DEMO_MODE = False
-MODEL_PATH = "yolov8l.pt"   # Largest COCO model available for best accuracy
+MODEL_PATH = "weapon_model.pt"
 PERSON_MODEL_PATH = "yolov8n.pt"
 EVIDENCE_DIR = os.path.join(os.path.dirname(__file__), "evidence_logs")
 FEEDBACK_DIR = os.path.join(os.path.dirname(__file__), "feedback_data")

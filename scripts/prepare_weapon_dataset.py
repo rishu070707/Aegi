@@ -64,14 +64,7 @@ DEFAULT_ALIAS_MAP = {
         "scissors",
         "cutlass",
     ],
-    "Explosive": [
-        "grenade",
-        "bomb",
-        "explosive",
-        "c4",
-        "ied",
-        "rocket",
-    ],
+
 }
 
 
