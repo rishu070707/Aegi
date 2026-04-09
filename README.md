@@ -1,68 +1,76 @@
-# 🛡️ AEGI – Advanced Weapon Detection System
-
 <div align="center">
-  <em>A state-of-the-art, paper-aligned real-time weapon detection system utilizing YOLOv8 and advanced post-processing to achieve unparalleled accuracy in surveillance scenarios.</em>
+  
+  <h1 align="center">🛡️ AEGI : SENTINEL ALPHA 🛡️</h1>
+  <p align="center">
+    <strong>Advanced Neural Surveillance & Real-Time Weapon Detection Pipeline</strong>
+  </p>
+
+  <p align="center">
+    <img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python" alt="Python">
+    <img src="https://img.shields.io/badge/Framework-Flask-black?style=for-the-badge&logo=flask" alt="Flask">
+    <img src="https://img.shields.io/badge/Neural_Engine-YOLOv8-orange?style=for-the-badge&logo=pytorch" alt="YOLOv8">
+    <img src="https://img.shields.io/badge/Vision-OpenCV-green?style=for-the-badge&logo=opencv" alt="OpenCV">
+  </p>
 </div>
 
 ---
 
-## 📖 Overview
-**AEGI** is a highly accurate, multi-class weapon detection system designed for real-time surveillance and threat identification. Built around the robust **YOLOv8** architecture and hosted on a **Flask** backend, the system is strictly calibrated to detect four critical weapon classes: 
-1. **Handgun**
-2. **Knife**
-3. **Rifle**
-4. **Shotgun**
+## 🌌 Overview
+**AEGI : SENTINEL ALPHA** is a state-of-the-art, multi-class neural threat detection system designed for real-time surveillance. Driven by a highly calibrated **YOLOv8** core and supported by an advanced **Flask** backend, the software autonomously identifies four critical classes: **Handgun, Knife, Rifle, and Shotgun**.
 
-It operates seamlessly across **static images**, **recorded videos**, and **live webcam feeds** via an intuitive, responsive dashboard.
+Designed to mirror rigorous research paper specifications, AEGI operates intelligently across static images, historical video payloads, and live edge-deployed CCTV feeds.
 
-## 🎯 Real-World Use Cases
-* **Public Safety & Surveillance**: Integration with CCTV networks to autonomously identify real-time armed threats in public spaces, airports, and schools.
-* **Access Control & Security Checkpoints**: Automated screening of individuals entering high-security facilities.
-* **Law Enforcement Tooling**: Assisting officers with real-time risk assessment and automated evidence logging.
-* **Edge-Device Deployment**: Adaptive deployment capable of running on lightweight edge hardware for rapid, localized response.
+## 🎯 Unparalleled Capabilities
+The platform boasts a massive array of features to power its surveillance ecosystem:
 
-## 📊 Performance & Results
-* **High-Precision Accuracy**: Optimized to achieve an incredible **96% detection accuracy** using a robust YOLOv8 inference pipeline.
-* **Neural Confidence Calibration**: Minimizes false positives and ensures stable, highly confident threat identification.
-* **Advanced Contextual Intelligence**: Utilizes Scene-Aware Filtering to dramatically reduce class confusion (e.g., distinguishing a harmless cylindrical object from a handgun barrel).
+### 📺 Multi-Modal Web Dashboard
+A visually stunning, futuristic UI (*Sentinel Alpha*) providing cross-functional analytics for:
+- **Live Feed Neural Tracking**: Real-time webcam processing using native MJPEG WebRTC streams.
+- **Image Pipeline**: Instant classification and bounding-box drawing for photo uploads.
+- **Video Threat Parsing**: Full, frame-by-frame autonomous threat detection looping for recorded videos.
 
----
+### 🧠 Deep Edge Intelligence & Inference
+- **Dynamic Edge Mode**: Actively throttles resolution and scales inference based on live hardware latency to maintain optimal FPS efficiency.
+- **CLAHE Pre-Processing**: Enhances low-light or washed-out feeds to squeeze out the highest confidence threshold available.
+- **H.264 On-the-fly Re-encoding**: Automatic `ffmpeg` injection standardizes all exported surveillance footage flawlessly for cross-browser playback.
 
-## 🚀 Post-Processing Architecture
-AEGI implements 9 robust post-processing modules tailored to resolve real-world deployment challenges mapping exactly to aligned research paper specifications. All modules are located in the `post_processing/` directory:
+### 📍 Interactive ROI (Region of Interest) Zones
+Eliminate alert fatigue by dynamically drawing polygonal, constrained inclusion zones right from the live UI payload. Outside regions are implicitly ignored.
 
+### 🛡️ Paper-Aligned Post-Processing Neural Logic
+All operations are bolstered by 9 robust processing checkpoints (`post_processing/`) designed to crush false positives:
 1. **Temporal Consistency Filtering**: Ensures smooth and continuous tracking.
-2. **Confidence Stabilization (Anti-Flicker)**: Eliminates UI flashing and jittering bounding boxes.
-3. **Context-Aware Risk Scoring**: Assesses threat severity dynamically based on surroundings.
-4. **Scene-Aware False Alarm Suppression**: Cancels out background noise and non-threat objects.
-5. **Smart ROI Monitoring**: Focuses system attention on explicitly critical areas in the frame.
-6. **Automated Evidence Logging**: Captures and strictly logs actionable threat records.
-7. **Alert Cooldown Mechanism**: Prevents alarm fatigue for monitoring staff.
-8. **Adaptive Edge Deployment Mode**: Throttles inference to manage resource-efficient processing.
-9. **User Feedback Learning Loop**: Helps adapt to edge cases over time.
+2. **Confidence Stabilization**: Destroys bounding box jitter and flickering.
+3. **Context-Aware Risk Scoring**: Scales threat level dynamically (Low, Medium, High).
+4. **Scene-Aware False Alarm Suppression**: Cancels logic overlap via parallel background tracking.
+5. **Smart ROI Monitoring**: Focused grid intelligence tracking.
+6. **Immutable Evidence Auto-Logging**: Exports threat records (base64 Image + JSON specs) locally strictly when danger is confirmed via Alert Cooldown processing.
+7. **Alert Cooldown Mechanism**: Caps warning flooding limits.
+8. **Adaptive Edge Deployment**: Resource-saving optimization protocol.
+9. **User Feedback Learning Loop**: Records forensic user intervention annotations.
 
 ---
 
-## 🏗️ Model Training (Paper-Aligned)
-The system actively replicates research-paper conditions by implementing strict data handling paradigms:
-* **5-Fold Cross-Validation Workflow**: Scripted cleanly in `scripts/train_weapon_model.py` to guarantee robust and unbiased weight generation.
-* **Harmonized Dataset Merging**: Maps diverse dataset sources flawlessly into the 4 target classes via `scripts/prepare_weapon_dataset.py`.
+## 📊 Performance Matrix
+* **Detection Efficacy**: Tuned to hit **96% detection accuracy**.
+* **Neural Confidence Calibration**: Actively guards against adversarial visual noise.
 
 ---
 
-## 🛠️ Quick Setup & Installation
+## 🛠️ Quick Deployment
 
-### 1. Prerequisites
-- **Python** (3.10 – 3.13)
+### 1. Requirements
+- **Python** 3.10 – 3.13
 - **Git**
+- *FFmpeg (Optional but heavily recommended for high-tier browser video re-encoding)*
 
-### 2. Clone the Repository
+### 2. Download Core
 ```bash
 git clone https://github.com/rishu070707/Aegi.git
 cd Aegi
 ```
 
-### 3. Create a Virtual Environment
+### 3. Initialize Isolated Environment
 **Windows:**
 ```powershell
 python -m venv .venv
@@ -75,29 +83,30 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 4. Install Dependencies
+### 4. Install Neural Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 5. Run the Application
+### 5. Ignite the Pipeline
 ```bash
 python app.py
 ```
-> **Success:** After successful initialization, open **[http://localhost:5000](http://localhost:5000)** in your browser.
+> **Success:** The Sentinel Core connects at **[http://localhost:5000](http://localhost:5000)**. Enter the dashboard to track threats.
 
 ---
 
-## 📂 Core Project Structure
-* 🧠 `weapon_model.pt` – Primary high-accuracy threat detection model
-* 🧠 `yolov8n.pt` – Base person detection model (Required for Scene-Aware capabilities)
-* ⚙️ `app.py` – Entry point for the Flask web application
-* 🔍 `detector.py` – Main inference pipeline processor
-* 📁 `post_processing/` – All 9 paper-aligned modules for enhanced inference validation
-* 🎨 `templates/live.html` – Interactive web dashboard
+## 📂 Core Architecture Tree
+* 🧠 `weapon_model.pt` – Primary High-Frequency network targeting the 4 threat classes.
+* 🧠 `yolov8n.pt` – Auxiliary Person-Detection model feeding the Scene-Aware Context logic.
+* ⚙️ `app.py` – Pulse of the Flask API ecosystem.
+* 🔍 `detector.py` – The main wrapper for YOLOv8 inference flow.
+* 📁 `post_processing/` – Home to all advanced filter protocols.
+* 📁 `evidence_logs/` – Immutable capture storage for trigger events.
+* 🎨 `templates/` – Contains `index.html` (Sentinel UI) and tracking elements.
 
-### 🏋️ Retraining the Model
-To instantiate a new training run utilizing your dataset constraints:
+### 🏋️ Retraining Protocols
+Initiate custom cross-validated training folds matching the paper architecture:
 ```bash
 python scripts/train_weapon_model.py --data path/to/dataset.yaml --weights yolov8s.pt --epochs 100 --imgsz 640 --batch 16
 ```
