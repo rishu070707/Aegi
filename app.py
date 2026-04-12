@@ -26,9 +26,9 @@ from flask import (
 # CONFIGURATION
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DEMO_MODE = False
-# Advanced Neural Surveillance Engine (YOLOv8l)
-# Large model (87MB) provides highest precision but requires higher GPU VRAM
-MODEL_PATH = "yolov8l.pt" 
+# Primary Neural Surveillance Engine (YOLOv8s)
+# Balanced variant offering high precision with real-time CPU feasibility
+MODEL_PATH = "yolov8s.pt" 
 PERSON_MODEL_PATH = "yolov8n.pt"
 
 EVIDENCE_DIR = os.path.join(os.path.dirname(__file__), "evidence_logs")
@@ -587,10 +587,10 @@ def api_status():
     
     # Map the filename to a research-aligned name
     m_path = detector.model_path.lower()
-    if "l.pt" in m_path:
-        display_model = "YOLOv8L Neural Synthesis (SOTA)"
-    elif "s.pt" in m_path:
+    if "s.pt" in m_path:
         display_model = "YOLOv8s Sentinel-Core"
+    elif "l.pt" in m_path:
+        display_model = "YOLOv8L Neural Synthesis (SOTA)"
     else:
         display_model = "YOLOv8 Sentinel (HF-Nano)"
     

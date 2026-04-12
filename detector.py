@@ -82,10 +82,10 @@ class WeaponDetector:
 
     def __init__(
         self,
-        model_path: str | None = "yolov8l.pt",
+        model_path: str | None = "yolov8s.pt",
         conf_threshold: float = 0.25,
         iou_threshold: float = 0.40,
-        input_size: int = 416,  # Optimized for CPU latency (down from 640)
+        input_size: int = 640,  # Restoring high-fidelity resolution for YOLOv8s
     ):
         self.conf_threshold = conf_threshold
         self.iou_threshold = iou_threshold
@@ -96,8 +96,8 @@ class WeaponDetector:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.half = self.device == "cuda"
 
-        # Load Large Backbone
-        self.model_path = os.path.abspath(model_path) if model_path and os.path.isfile(model_path) else "yolov8l.pt"
+        # Load Core Backbone (YOLOv8s)
+        self.model_path = os.path.abspath(model_path) if model_path and os.path.isfile(model_path) else "yolov8s.pt"
         self.model = YOLO(self.model_path)
         self.model.to(self.device)
         try:
