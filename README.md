@@ -2,13 +2,13 @@
   
   <h1 align="center">🛡️ AEGI : SENTINEL ALPHA 🛡️</h1>
   <p align="center">
-    <strong>Advanced Neural Surveillance & Real-Time Weapon Detection Pipeline</strong>
+    <strong>Advanced Neural Surveillance & Real-Time Weapon Detection Pipeline (YOLOv8l Edition)</strong>
   </p>
 
   <p align="center">
     <img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python" alt="Python">
     <img src="https://img.shields.io/badge/Framework-Flask-black?style=for-the-badge&logo=flask" alt="Flask">
-    <img src="https://img.shields.io/badge/Neural_Engine-YOLOv8-orange?style=for-the-badge&logo=pytorch" alt="YOLOv8">
+    <img src="https://img.shields.io/badge/Neural_Engine-YOLOv8L-orange?style=for-the-badge&logo=pytorch" alt="YOLOv8L">
     <img src="https://img.shields.io/badge/Vision-OpenCV-green?style=for-the-badge&logo=opencv" alt="OpenCV">
   </p>
 </div>
@@ -16,7 +16,7 @@
 ---
 
 ## 🌌 Overview
-**AEGI : SENTINEL ALPHA** is a state-of-the-art, multi-class neural threat detection system designed for real-time surveillance. Driven by a highly calibrated **YOLOv8** core and supported by an advanced **Flask** backend, the software autonomously identifies four critical classes: **Handgun, Knife, Rifle, and Shotgun**.
+**AEGI : SENTINEL ALPHA** is a state-of-the-art, multi-class neural threat detection system designed for real-time surveillance. Driven by a high-precision **YOLOv8l (Large)** Neural Synthesis Engine and supported by an advanced **Flask** backend, the software autonomously identifies four critical classes: **Handgun, Knife, Rifle, and Shotgun**.
 
 Designed to mirror rigorous research paper specifications, AEGI operates intelligently across static images, historical video payloads, and live edge-deployed CCTV feeds.
 
@@ -30,6 +30,8 @@ A visually stunning, futuristic UI (*Sentinel Alpha*) providing cross-functional
 - **Video Threat Parsing**: Full, frame-by-frame autonomous threat detection looping for recorded videos.
 
 ### 🧠 Deep Edge Intelligence & Inference
+- **YOLOv8l Neural Engine**: Utilizes Large backbone weights (87MB) for maximum feature extraction and spatial sensitivity.
+- **Dual-Engine Fusion**: Fuses high-fidelity general detections with specialized weapon-trained weights.
 - **Dynamic Edge Mode**: Actively throttles resolution and scales inference based on live hardware latency to maintain optimal FPS efficiency.
 - **CLAHE Pre-Processing**: Enhances low-light or washed-out feeds to squeeze out the highest confidence threshold available.
 - **H.264 On-the-fly Re-encoding**: Automatic `ffmpeg` injection standardizes all exported surveillance footage flawlessly for cross-browser playback.
@@ -52,7 +54,7 @@ All operations are bolstered by 9 robust processing checkpoints (`post_processin
 ---
 
 ## 📊 Performance Matrix
-* **Detection Efficacy**: Tuned to hit **96% detection accuracy**.
+* **Detection Efficacy**: Tuned to hit **96% detection accuracy** using the Large backbone.
 * **Neural Confidence Calibration**: Actively guards against adversarial visual noise.
 
 ---
@@ -97,10 +99,11 @@ python app.py
 ---
 
 ## 📂 Core Architecture Tree
-* 🧠 `weapon_model.pt` – Primary High-Frequency network targeting the 4 threat classes.
+* 🧠 `yolov8l.pt` – Primary **Neural Synthesis Engine** (Large Variant) for high-precision tracking.
+* 🧠 `weapon_model.pt` – Specialized high-frequency weights targeting firearms.
 * 🧠 `yolov8n.pt` – Auxiliary Person-Detection model feeding the Scene-Aware Context logic.
 * ⚙️ `app.py` – Pulse of the Flask API ecosystem.
-* 🔍 `detector.py` – The main wrapper for YOLOv8 inference flow.
+* 🔍 `detector.py` – The main wrapper for Dual-Engine inference flow.
 * 📁 `post_processing/` – Home to all advanced filter protocols.
 * 📁 `evidence_logs/` – Immutable capture storage for trigger events.
 * 🎨 `templates/` – Contains `index.html` (Sentinel UI) and tracking elements.
@@ -108,5 +111,5 @@ python app.py
 ### 🏋️ Retraining Protocols
 Initiate custom cross-validated training folds matching the paper architecture:
 ```bash
-python scripts/train_weapon_model.py --data path/to/dataset.yaml --weights yolov8s.pt --epochs 100 --imgsz 640 --batch 16
-```
+python scripts/train_weapon_model.py --data path/to/dataset.yaml --weights yolov8l.pt --epochs 100 --imgsz 640 --batch 8
+```
