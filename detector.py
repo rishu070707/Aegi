@@ -85,28 +85,47 @@ class WeaponDetector:
         model_path: str | None = "yolov8l.pt",
         conf_threshold: float = 0.25,
         iou_threshold: float = 0.40,
-        input_size: int = 640,
+        input_size: int = 416,  # Optimized for CPU latency (down from 640)
     ):
         self.conf_threshold = conf_threshold
         self.iou_threshold = iou_threshold
         self.input_size = input_size
 
+        # Determine best device and precision
+        import torch
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.half = self.device == "cuda"
+
         # Load Large Backbone
         self.model_path = os.path.abspath(model_path) if model_path and os.path.isfile(model_path) else "yolov8l.pt"
         self.model = YOLO(self.model_path)
+        self.model.to(self.device)
+        try:
+            self.model.fuse()  # Fuse conv+bn for faster inference
+        except:
+            pass
         
         # Load Specialized Weapon weights (fallback/auxiliary)
         self.aux_path = os.path.abspath("weapon_model.pt")
-        self.aux_model = YOLO(self.aux_path) if os.path.exists(self.aux_path) else None
+        if os.path.exists(self.aux_path):
+            self.aux_model = YOLO(self.aux_path)
+            self.aux_model.to(self.device)
+            try:
+                self.aux_model.fuse()
+            except:
+                pass
+        else:
+            self.aux_model = None
         
         self.class_names = self.model.names
         self.is_custom = True
         
         self._clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        self._frame_count = 0
 
-        print(f"[WeaponDetector] Large Core Init: {self.model_path}")
+        print(f"[WeaponDetector] Neural Core [{self.device}|imgsz:{self.input_size}]")
         if self.aux_model:
-            print(f"[WeaponDetector] Auxiliary Weapon Core: {self.aux_path}")
+            print(f"[WeaponDetector] Dual-Engine Fusion: Active")
 
     def _preprocess(self, frame: np.ndarray) -> np.ndarray:
         """
@@ -174,7 +193,8 @@ class WeaponDetector:
             imgsz=imgsz,
             conf=conf,
             iou=self.iou_threshold,
-            half=False, 
+            half=self.half, 
+            device=self.device,
             verbose=False,
         )
         if class_ids is not None:
@@ -240,31 +260,43 @@ class WeaponDetector:
             )
         return out
 
+    # Persistent storage for Strided Inference results
+    _last_heavy_dets = []
+
     def detect(self, frame: np.ndarray, imgsz: int | None = None) -> tuple[list, float]:
         """
-        Run Dual-Engine inference. Optimized for large-model fidelity.
+        Run Optimized Neural Inference.
+        Strided Inference Protocol:
+        - Auxiliary (Nano) engine runs EVERY frame for low-latency firearm tracking.
+        - Primary (Large) engine runs every 5th frame to maintain SOTA feature extraction.
         """
+        self._frame_count += 1
         t0 = time.perf_counter()
         proc = self._preprocess(frame)
         sz = int(imgsz) if imgsz is not None else int(self.input_size)
 
         all_detections = []
         
-        # Engine 1: Large Backbone (General & Knife)
-        r_l = self._run_model(self.model, proc, conf=self.conf_threshold, imgsz=sz)
-        all_detections.extend(self._boxes_to_detections(r_l, proc.shape, self.model.names))
+        # Engine 1: Primary Large Engine (Strided)
+        # Always run for high-res analysis (imgsz >= 640) which indicates still images
+        run_heavy = (self._frame_count % 5 == 0) or (sz >= 600)
+        
+        if run_heavy:
+            r_l = self._run_model(self.model, proc, conf=self.conf_threshold, imgsz=sz)
+            self._last_heavy_dets = self._boxes_to_detections(r_l, proc.shape, self.model.names)
+        
+        all_detections.extend(self._last_heavy_dets)
 
-        # Engine 2: Auxiliary specialized weights (Firearms recovery)
+        # Engine 2: Auxiliary specialized engine (Every frame Firearms recovery)
         if self.aux_model:
-            # Run at lower threshold to recover obscure weapons
             r_aux = self._run_model(self.aux_model, proc, conf=0.12, imgsz=sz)
             aux_dets = self._boxes_to_detections(r_aux, proc.shape, self.aux_model.names, threshold_map={"Gun": 0.12})
             
-            # Simple NMS to merge aux results with large core results
+            # Fuse with primary results
             for ad in aux_dets:
                 is_dup = False
                 for ld in all_detections:
-                    if _iou_xyxy(ad["bbox"], ld["bbox"]) > 0.5:
+                    if _iou_xyxy(ad["bbox"], ld["bbox"]) > 0.45:
                         is_dup = True
                         break
                 if not is_dup:
@@ -272,6 +304,7 @@ class WeaponDetector:
 
         latency = (time.perf_counter() - t0) * 1000.0
         return all_detections, latency
+
 
 
     def draw_detections(self, frame: np.ndarray, dets: list) -> np.ndarray:
