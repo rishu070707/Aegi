@@ -87,9 +87,9 @@ class WeaponDetector:
     def __init__(
         self,
         model_path: str | None = "weapon_model.pt",
-        conf_threshold: float = 0.15,
+        conf_threshold: float = 0.40,  # Increased to prevent false positives like faces
         iou_threshold: float = 0.40,
-        input_size: int = 640,  # Restoring high-fidelity resolution for YOLOv8s
+        input_size: int = 640,
     ):
         self.conf_threshold = conf_threshold
         self.iou_threshold = iou_threshold
@@ -118,6 +118,9 @@ class WeaponDetector:
         
         self.class_names = self.model.names
         self.is_custom = True
+        
+        # Explicit Face Anti-Spoofing (to prevent faces being detected as weapons)
+        self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         
         self._clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         self._frame_count = 0
@@ -237,7 +240,7 @@ class WeaponDetector:
             kw["classes"] = class_ids
         return model(frame, **kw)[0]
 
-    def _boxes_to_detections(self, r, frame_shape: tuple, model_names: dict, threshold_map: dict | None = None) -> list:
+    def _boxes_to_detections(self, r, frame_shape: tuple, model_names: dict, frame: np.ndarray, threshold_map: dict | None = None) -> list:
         out = []
         if r.boxes is None or len(r.boxes) == 0:
             return out
@@ -250,6 +253,10 @@ class WeaponDetector:
             raw = raw if isinstance(raw, str) else str(raw)
             weapon_cls = _name_to_weapon(raw)
             if weapon_cls is None:
+                continue
+                
+            # If model is highly unsure, skip immediately to save processing
+            if float(conf) < 0.25:
                 continue
             
             current_min_conf = threshold_map.get(raw, self.conf_threshold) if threshold_map else self.conf_threshold
@@ -290,6 +297,32 @@ class WeaponDetector:
                     "source": "neural_synthesis",
                 }
             )
+            
+        # Post-process: Filter out weapons that are actually faces
+        if out and hasattr(self, 'face_cascade'):
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame
+            faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30))
+            
+            filtered_out = []
+            for det in out:
+                is_face = False
+                det_bbox = det["bbox"]
+                
+                for (fx, fy, fw, fh) in faces:
+                    face_bbox = [fx, fy, fx + fw, fy + fh]
+                    iou = _iou_xyxy(det_bbox, face_bbox)
+                    
+                    # If the weapon detection overlaps with a face heavily (IoU > 0.15) 
+                    # or the weapon is entirely inside the face, it's a false positive.
+                    if iou > 0.15:
+                        is_face = True
+                        break
+                        
+                if not is_face:
+                    filtered_out.append(det)
+                    
+            out = filtered_out
+            
         return out
 
     # Persistent storage for Strided Inference results
@@ -315,14 +348,14 @@ class WeaponDetector:
         
         if run_heavy:
             r_l = self._run_model(self.model, proc, conf=self.conf_threshold, imgsz=sz)
-            self._last_heavy_dets = self._boxes_to_detections(r_l, proc.shape, self.model.names)
+            self._last_heavy_dets = self._boxes_to_detections(r_l, proc.shape, self.model.names, frame=frame)
         
         all_detections.extend(self._last_heavy_dets)
 
         # Engine 2: Auxiliary specialized engine (Every frame Firearms recovery)
         if self.aux_model:
             r_aux = self._run_model(self.aux_model, proc, conf=0.12, imgsz=sz)
-            aux_dets = self._boxes_to_detections(r_aux, proc.shape, self.aux_model.names, threshold_map={"Gun": 0.12})
+            aux_dets = self._boxes_to_detections(r_aux, proc.shape, self.aux_model.names, frame=frame, threshold_map={"Gun": 0.12})
             
             # Fuse with primary results
             for ad in aux_dets:
