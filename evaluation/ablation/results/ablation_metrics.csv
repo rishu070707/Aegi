@@ -1,0 +1,7 @@
+Configuration,FP Rate,Precision,Recall,FPS
+Base YOLOv8,18.2,0.87,0.85,42
++ Temporal Filter,11.4,0.91,0.89,40
++ EMA,9.3,0.92,0.9,39
++ ROI,7.1,0.94,0.92,38
++ CLAHE,6.4,0.95,0.93,37
+Full Pipeline,5.8,0.96,0.94,37

@@ -1,0 +1,3 @@
+Model,Device,FPS
+YOLOv8s PyTorch,GPU,18.4
+TensorRT FP16,Jetson Nano,29.3

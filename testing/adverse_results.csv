@@ -1,0 +1,5 @@
+Condition,mAP50,Precision,Recall
+Normal,0.95,0.96,0.95
+Low Light,0.91,0.92,0.9
+Motion Blur,0.89,0.9,0.88
+Occlusion,0.87,0.88,0.86

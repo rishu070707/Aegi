@@ -1,0 +1,6 @@
+batch: 16
+epochs: 100
+lr0: 0.01
+model: yolov8s.pt
+optimizer: SGD
+seed: 42

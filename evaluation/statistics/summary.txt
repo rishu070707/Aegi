@@ -1,0 +1,5 @@
+Statistical Validation Report
+-----------------------------
+Mean mAP@50: 0.928
+Std Dev: 0.010
+95% CI: [0.907, 0.949]

@@ -1,0 +1,7 @@
+batch: 16
+data: dataset/fold4/data.yaml
+epochs: 100
+lr0: 0.01
+model: yolov8s.pt
+optimizer: SGD
+seed: 42

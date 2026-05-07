@@ -1,0 +1,6 @@
+evaluation_dataset: dataset/test
+modules:
+  clahe: true
+  ema_smoothing: true
+  roi_filtering: true
+  temporal_filtering: true
