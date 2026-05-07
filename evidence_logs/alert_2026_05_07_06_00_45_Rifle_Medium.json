@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-05-07T06:00:45.627097+00:00",
+  "class": "Rifle",
+  "class_name": "Rifle",
+  "classification": "Rifle",
+  "model_class": "Gun",
+  "confidence": 0.5562,
+  "bbox": [
+    165,
+    266,
+    627,
+    408
+  ],
+  "risk_score": 0.4522,
+  "risk_level": "Medium",
+  "risk_components": {
+    "confidence": 0.5562,
+    "area": 0.247,
+    "spatial_priority": 0.5
+  },
+  "detection_id": "Rifle_c47024d3_1778133645627",
+  "source_mode": "image",
+  "in_roi": false,
+  "roi_zone": [],
+  "session_id": "c47024d3",
+  "frame_file": "alert_2026_05_07_06_00_45_Rifle_Medium.png"
+}

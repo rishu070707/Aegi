@@ -86,7 +86,7 @@ class WeaponDetector:
 
     def __init__(
         self,
-        model_path: str | None = "yolov8s.pt",
+        model_path: str | None = "weapon_model.pt",
         conf_threshold: float = 0.15,
         iou_threshold: float = 0.40,
         input_size: int = 640,  # Restoring high-fidelity resolution for YOLOv8s
@@ -106,7 +106,7 @@ class WeaponDetector:
             self.model_path = engine_path
             print("[WeaponDetector] EDGE ACCELERATOR: TensorRT Engine Selected.")
         else:
-            self.model_path = os.path.abspath(model_path) if model_path and os.path.isfile(model_path) else "yolov8s.pt"
+            self.model_path = os.path.abspath(model_path) if model_path and os.path.isfile(model_path) else "weapon_model.pt"
         self.model = YOLO(self.model_path)
         self.model.to(self.device)
         try:
@@ -114,17 +114,7 @@ class WeaponDetector:
         except:
             pass
         
-        # Load Specialized Weapon weights (fallback/auxiliary)
-        self.aux_path = os.path.abspath("weapon_model.pt")
-        if os.path.exists(self.aux_path):
-            self.aux_model = YOLO(self.aux_path)
-            self.aux_model.to(self.device)
-            try:
-                self.aux_model.fuse()
-            except:
-                pass
-        else:
-            self.aux_model = None
+        self.aux_model = None
         
         self.class_names = self.model.names
         self.is_custom = True
@@ -279,12 +269,14 @@ class WeaponDetector:
                 continue
 
             if weapon_cls == "Handgun":
-                if aspect > 6.0 or aspect < 0.15:
-                    weapon_cls = "Knife"
-                elif (bw > w * 0.20 and aspect > 2.2):
+                # Only reclassify if the aspect ratio is extreme (to prevent flickering)
+                if aspect > 3.5:
                     weapon_cls = "Rifle"
-                elif (bh > h * 0.20 and aspect < 0.45):
+                elif aspect < 0.28:
                     weapon_cls = "Shotgun"
+                elif aspect > 2.5 and (bw * bh) > (w * h * 0.15):
+                    # Large and somewhat long -> Rifle
+                    weapon_cls = "Rifle"
             
             c = float(conf)
             

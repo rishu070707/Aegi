@@ -1,0 +1,10 @@
+names:
+  0: Handgun
+  1: Knife
+  2: Rifle
+  3: Shotgun
+
+path: dataset
+train: train/images
+val: valid/images
+test: test/images

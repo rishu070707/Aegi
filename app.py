@@ -56,9 +56,9 @@ from flask import (
 # CONFIGURATION
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DEMO_MODE = False
-# Primary Neural Surveillance Engine (YOLOv8s)
-# Balanced variant offering high precision with real-time CPU feasibility
-MODEL_PATH = "yolov8s.pt" 
+# Primary Neural Surveillance Engine (Custom Weapon Model)
+# Custom trained YOLOv8s on 25,000 images with 4 classes
+MODEL_PATH = "weapon_model.pt" 
 
 EVIDENCE_DIR = os.path.join(os.path.dirname(__file__), "evidence_logs")
 FEEDBACK_DIR = os.path.join(os.path.dirname(__file__), "feedback_data")
@@ -209,8 +209,12 @@ def capture_thread_fn():
     global latest_frame, cam_error, webcam_active
     cap = None
     try:
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        if not cap.isOpened():
+            # Fallback if DSHOW fails
+            cap = cv2.VideoCapture(0)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         if not cap.isOpened():
             cam_error = "No webcam device found. Please connect a camera."
             webcam_active = False

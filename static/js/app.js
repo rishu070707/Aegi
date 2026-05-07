@@ -408,7 +408,7 @@ const Sentinel = {
     const placeholder = document.getElementById('feedPlaceholder');
     
     if (img) {
-      img.src = '/stream?' + Date.now();
+      img.src = '/webcam?' + Date.now();
       img.onload = () => this.drawROIZones();
       img.classList.remove('hidden');
       if (placeholder) placeholder.classList.add('hidden');
@@ -436,13 +436,13 @@ const Sentinel = {
     if (!this.streamActive) {
       try {
         await this.ensureNotificationPermission();
-        await fetch('/stream/start', { method: 'POST' });
+        await fetch('/webcam/start', { method: 'POST' });
         this.streamActive = true;
         this.resumeUI();
       } catch(e) { console.error(e); }
     } else {
       try {
-        await fetch('/stream/stop', { method: 'POST' });
+        await fetch('/webcam/stop', { method: 'POST' });
         this.streamActive = false;
         if (img) {
             img.src = '';
@@ -646,7 +646,6 @@ const Sentinel = {
     if (roiBtn) roiBtn.onclick = () => this.toggleROIDrawing();
 
     this.setupROI();
-    this.updateStatusBadge();
   }
 };
 

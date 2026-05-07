@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-05-07T05:43:58.575545+00:00",
+  "class": "Knife",
+  "class_name": "Knife",
+  "classification": "Knife",
+  "model_class": "Gun",
+  "confidence": 0.7279,
+  "bbox": [
+    12,
+    154,
+    620,
+    252
+  ],
+  "risk_score": 0.4661,
+  "risk_level": "Medium",
+  "risk_components": {
+    "confidence": 0.7279,
+    "area": 0.0072,
+    "spatial_priority": 0.5
+  },
+  "detection_id": "Knife_06110361_1778132638566",
+  "source_mode": "video",
+  "in_roi": false,
+  "roi_zone": [],
+  "session_id": "06110361",
+  "frame_file": "alert_2026_05_07_05_43_58_Knife_Medium.png"
+}
