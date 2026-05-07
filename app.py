@@ -1,37 +1,53 @@
 """
-app.py -- Flask application for the Sentinel Alpha weapon detection platform
+app.py -- Research Prototype: Post-Processing Pipeline Demo
 
-Runtime pipeline:
-  Adaptive CLAHE (3-tier) -> YOLOv8s + aux weapon_model.pt inference ->
-  Temporal Consistency Filtering (N=5, K=3, tau=0.30) ->
-  Confidence Stabilization (EMA, alpha=0.4) ->
-  Scene-Aware False Alarm Suppression (ψ-context multiplier) ->
-  ROI Gate -> Context-Aware Risk Scoring (w1=0.5, w2=0.3, w3=0.2) ->
-  Alert Cooldown (Δt=5s) -> Automated Evidence Logging -> User Feedback Loop
+⚠️ RESEARCH PROTOTYPE, NOT PRODUCTION CODE
 
-Paper contributions implemented in this codebase:
-  (i)   Multi-source dataset aggregation (Hugging Face, GitHub, Roboflow, Kaggle,
-         controlled CCTV capture) — training conducted externally; repo ships
-         yolov8s.pt + optional weapon_model.pt from Hugging Face.
-  (ii)  YOLOv8s with 5-fold cross-validation (mAP@50 ≥ 0.95 reported in paper;
-         validated checkpoint not bundled in this repo).
-  (iii) Flask multi-modal platform: static image, pre-recorded video (async
-         background job), live webcam streaming.
-  (iv)  Temporal Consistency Filtering — post_processing/temporal_filter.py
-  (v)   Confidence Stabilization (EMA) — post_processing/confidence_stabilizer.py
-  (vi)  Context-Aware Risk Scoring — post_processing/risk_scorer.py
-  (vii) Scene-Aware False Alarm Suppression — post_processing/scene_filter.py
-  (viii)Smart ROI Monitoring — post_processing/roi_monitor.py
-  (ix)  Automated Evidence Logging — post_processing/evidence_logger.py
-  (x)   Alert Cooldown Mechanism — post_processing/alert_cooldown.py
-  (xi)  Adaptive Edge Deployment Mode — post_processing/edge_mode.py
-  (xii) User Feedback Learning Loop — post_processing/feedback_loop.py
+This Flask application demonstrates post-processing techniques applied to
+generic object detection. It is NOT a weapon detection system.
 
-Repository correction note:
-  This repo ships yolov8s.pt (COCO weights) plus optional weapon_model.pt from
-  Hugging Face (Subh775/Threat-Detection-YOLOv8n). The 25,000-image custom
-  dataset, validated 92.8% mAP@50 report, and TensorRT artifacts are not
-  bundled; those figures originate from the paper's training environment.
+What This Is:
+- Research demo showing pipeline architecture
+- Test interface for post-processing modules
+- Integration point for external detectors
+- For academic evaluation and research purposes
+
+What This Is NOT:
+- Production-ready surveillance system
+- Custom-trained weapon detector
+- Suitable for law enforcement or military use
+- Forensic-grade evidence collection
+- Secure or scalable deployment
+
+Pipeline Stages:
+1. Image enhancement (CLAHE preprocessing)
+2. Object detection (YOLOv8s COCO model - GENERIC OBJECTS ONLY)
+3. Label mapping (string-based heuristic to weapon categories)
+4. Post-processing (temporal, confidence, ROI, scoring filters)
+5. Evidence logging (frame saving to local disk)
+
+Model Provenance:
+- Detection model: YOLOv8s COCO-pretrained (Ultralytics)
+- Weapon class mapping: Uses external Hugging Face model if available
+- Falls back to string matching if auxiliary model unavailable
+- NO custom training in this repository
+
+Critical Limitations:
+- Heuristic-based post-processing (not ML-trained)
+- Global variables (NOT thread-safe for concurrent use)
+- Synchronous inference (NOT scalable)
+- No authentication, authorization, or rate limiting
+- No security features implemented
+- String-based label mapping produces false positives
+- Depends entirely on upstream model quality
+
+For complete information:
+- EXECUTIVE_SUMMARY.md - Overview of project status
+- SYSTEM_LIMITATIONS.md - Detailed capabilities and gaps
+- MODEL_SOURCES_AND_ATTRIBUTION.md - Where models come from
+- ACTION_PLAN_THIS_WEEK.md - Implementation improvements needed
+
+IMPORTANT: Read documentation before deployment consideration.
 """
 
 import os
@@ -56,9 +72,11 @@ from flask import (
 # CONFIGURATION
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DEMO_MODE = False
-# Primary Neural Surveillance Engine (Custom Weapon Model)
-# Custom trained YOLOv8s on 25,000 images with 4 classes
-MODEL_PATH = "weapon_model.pt" 
+# Model Configuration
+# ⚠️ IMPORTANT: This uses COCO-pretrained generic detector
+# For weapon detection capability, auxiliary model required (Subh775/Threat-Detection-YOLOv8n from HuggingFace)
+# If weapon_model.pt unavailable, system degrades to generic detection with string-based label mapping
+MODEL_PATH = "weapon_model.pt"  # Falls back to yolov8s.pt if not available 
 
 EVIDENCE_DIR = os.path.join(os.path.dirname(__file__), "evidence_logs")
 FEEDBACK_DIR = os.path.join(os.path.dirname(__file__), "feedback_data")
@@ -777,9 +795,28 @@ def live_detections():
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("  Weapon Detection System")
-    print(f"  Session: {SESSION_ID} | Demo Mode: {DEMO_MODE}")
-    print("  Navigate to: http://localhost:5000")
-    print("=" * 60)
+    print("\n" + "=" * 70)
+    print("⚠️  RESEARCH PROTOTYPE - NOT FOR PRODUCTION USE")
+    print("=" * 70)
+    print("\nStarting Flask Research Demo: Post-Processing Pipeline")
+    print(f"Session: {SESSION_ID}")
+    print(f"Demo Mode: {DEMO_MODE}")
+    print("\nCRITICAL INFORMATION:")
+    print("- This is a RESEARCH PROTOTYPE for academic evaluation")
+    print("- Uses COCO-pretrained generic object detector (NOT weapon-specific)")
+    print("- Weapon detection capability requires external Hugging Face model")
+    print("- Post-processing is heuristic-based, not ML-trained")
+    print("- NOT suitable for production, law enforcement, or military use")
+    print("\nKEY LIMITATIONS:")
+    print("- Global variables (not thread-safe for concurrent users)")
+    print("- Synchronous inference (not scalable)")
+    print("- No authentication or security features")
+    print("- String-based label mapping produces false positives")
+    print("- Evidence logging is basic (not forensic-grade)")
+    print("\nREAD BEFORE USE:")
+    print("- EXECUTIVE_SUMMARY.md")
+    print("- SYSTEM_LIMITATIONS.md")
+    print("- MODEL_SOURCES_AND_ATTRIBUTION.md")
+    print("\nNavigate to: http://localhost:5000")
+    print("=" * 70 + "\n")
     app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False, threaded=True)

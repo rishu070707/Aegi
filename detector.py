@@ -1,14 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-detector.py -- weapon detection runtime
+detector.py -- Object Detection with Weapon Label Mapping
 
-The current runtime uses a dual-engine inference path:
-- `yolov8s.pt` as the primary general detector.
-- `weapon_model.pt` as an optional auxiliary Hugging Face weapon detector.
+⚠️ CRITICAL NOTES:
+- Primary model (yolov8s.pt) is COCO-pretrained generic detector
+- COCO dataset does NOT include weapon classes (handgun, rifle, knife, shotgun)
+- Weapon detection capability depends entirely on auxiliary model (Subh775/Threat-Detection-YOLOv8n from HF)
+- If auxiliary model unavailable, system reverts to generic object detection
+- Label mapping uses string matching (heuristic, NOT trained detection)
+- This is NOT a weapon detection system unless auxiliary model loads successfully
 
-This repository does not bundle a custom-trained checkpoint or validation report.
-Confidence values returned here are raw model confidences and must not be treated
-as paper-level accuracy metrics.
+Model Sources:
+- yolov8s.pt: Ultralytics (COCO-trained, generic objects)
+- weapon_model.pt: Hugging Face user-provided model (Subh775/Threat-Detection-YOLOv8n)
+
+For complete information:
+- MODEL_SOURCES_AND_ATTRIBUTION.md - Model provenance
+- SYSTEM_LIMITATIONS.md - What this can/cannot do
+- BEFORE_AFTER_CLAIMS_ANALYSIS.md - Where paper claims differ from code
+
+Confidence values are raw model outputs. Post-processing filters may reduce false positives.
 """
 
 import cv2
@@ -21,6 +32,64 @@ from ultralytics import YOLO
 
 HF_WEAPON_REPO = "Subh775/Threat-Detection-YOLOv8n"
 HF_WEAPON_FILE = "weights/best.pt"
+
+
+def check_model_assumptions() -> dict:
+    """
+    Verify model availability and system assumptions at startup.
+    
+    Returns:
+        dict: {
+            'yolo_available': bool,
+            'weapon_model_available': bool,
+            'warnings': list of warning strings,
+            'system_can_detect_weapons': bool
+        }
+    
+    This function checks:
+    1. Whether primary YOLO model (yolov8s.pt) can load
+    2. Whether auxiliary weapon model (weapon_model.pt) exists
+    3. System degradation mode if weapon model unavailable
+    
+    Call at application startup to verify capabilities before user interaction.
+    """
+    warnings = []
+    
+    # Check primary YOLO model
+    yolo_available = False
+    try:
+        model = YOLO("yolov8s.pt")
+        yolo_available = True
+    except Exception as e:
+        warnings.append(f"⚠️  YOLO model failed to load: {e}")
+    
+    # Check auxiliary weapon model
+    weapon_model_available = os.path.exists("weapon_model.pt")
+    
+    if not weapon_model_available:
+        warnings.append(
+            "⚠️  weapon_model.pt not found. System will use generic COCO detection "
+            "with string-based label mapping. Weapon detection accuracy will be LOW."
+        )
+    
+    # Determine actual system capability
+    system_can_detect_weapons = yolo_available and weapon_model_available
+    
+    if yolo_available and not weapon_model_available:
+        warnings.append(
+            "ℹ️  System can run in DEGRADED MODE: Generic object detection + "
+            "heuristic label mapping (not recommended for security applications)"
+        )
+    
+    if not yolo_available:
+        warnings.append("❌ System cannot run: YOLO model unavailable")
+    
+    return {
+        'yolo_available': yolo_available,
+        'weapon_model_available': weapon_model_available,
+        'warnings': warnings,
+        'system_can_detect_weapons': system_can_detect_weapons
+    }
 
 
 def _normalize_weapon_label(label: str) -> str:
