@@ -105,7 +105,7 @@ app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 MB upload limit
 # GLOBAL PIPELINE COMPONENTS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 detector     = WeaponDetector(model_path=MODEL_PATH)
-temporal     = TemporalConsistencyFilter(window_size=5, min_hits=1, min_confidence=0.10)
+temporal     = TemporalConsistencyFilter(window_size=5, min_hits=3, min_confidence=0.30)
 stabilizer   = ConfidenceStabilizer(alpha=0.4)
 risk_scorer  = RiskScorer(w1=0.5, w2=0.3, w3=0.2)
 roi_monitor  = ROIMonitor()
@@ -254,7 +254,7 @@ def capture_thread_fn():
 
 def inference_thread_fn():
     global latest_frame, latest_boxes, webcam_active
-    local_temporal = TemporalConsistencyFilter(window_size=5, min_hits=1, min_confidence=0.10)
+    local_temporal = TemporalConsistencyFilter(window_size=5, min_hits=3, min_confidence=0.30)
     while webcam_active:
         frame_copy = None
         with stream_lock:
@@ -458,8 +458,8 @@ def _process_video_job(job_id: str, in_path: str, raw_out: str, out_path: str, f
       - Use imgsz=320 instead of 640 (4× fewer pixels, ~2.5× faster inference).
       - scene_filter is disabled (bypass_scene=True) — saves ~40% per frame.
     """
-    PROCESS_EVERY_N = 3          # Process 1 in every N frames  (1=all, 3=~3× faster)
-    VIDEO_IMGSZ     = 320        # Smaller inference size for batch speed
+    PROCESS_EVERY_N = 1          # Process every frame at full resolution (paper-aligned; GPU recommended)
+    VIDEO_IMGSZ     = 640        # Full resolution inference as claimed in paper
 
     try:
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -471,7 +471,7 @@ def _process_video_job(job_id: str, in_path: str, raw_out: str, out_path: str, f
 
         # Paper-aligned temporal filter: N=5, K=3, τ=0.30 (Section IV-D)
         local_temporal = TemporalConsistencyFilter(
-            window_size=5, min_hits=1, min_confidence=0.10
+            window_size=5, min_hits=3, min_confidence=0.30
         )
 
         frame_idx   = 0

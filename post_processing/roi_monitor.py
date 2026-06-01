@@ -123,8 +123,9 @@ class ROIMonitor:
         h, w = frame.shape[:2]
 
         for zone in self._roi_zones:
-            pts = np.array([[int(p[0] * w), int(p[1] * h)] for p in zone], dtype=np.int32)
             overlay = frame.copy()
+            h, w = frame.shape[:2]
+            pts = np.array([[int(p[0]*w), int(p[1]*h)] for p in zone], dtype=np.int32)
             cv2.fillPoly(overlay, [pts], (0, 255, 255))
             cv2.addWeighted(overlay, 0.15, frame, 0.85, 0, frame)
             cv2.polylines(frame, [pts], isClosed=True, color=(0, 255, 255), thickness=2)
