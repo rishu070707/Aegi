@@ -1,10 +1,35 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Weapon Detection Dataset Configuration
+# Paper: "Real-Time Multi-Class Weapon Detection System Using YOLOv8"
+# Authors: Shambhavi Trivedi, Aekeesh Jaiswal, Vaishnavi Singh
+# SRM Institute of Science and Technology, Delhi-NCR
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Dataset Sources (Section III-A of paper):
+#   Source 1 — Google Open Images Dataset      (public benchmark)
+#   Source 2 — Roboflow Universe               (weapon detection collections)
+#   Source 3 — Kaggle Weapon Repositories      (labeled weapon datasets)
+#   Source 4 — Controlled CCTV Capture Sessions (custom captures)
+#   Source 5 — Synthetic Augmentation          (low-light, blur, occlusion)
+#
+# Dataset Split (Section III-C):
+#   Train : 70%  (~17,500 images)
+#   Val   : 15%  (~3,750 images)
+#   Test  : 15%  (~3,750 images)
+#
+# NOTE: Download dataset using the Google Colab notebook:
+#       Weapon_Detection_Training_Colab.ipynb
+# ─────────────────────────────────────────────────────────────────────────────
+
+path: ./dataset        # dataset root (relative to project)
+train: train/images    # 70% split
+val: valid/images      # 15% split
+test: test/images      # 15% split
+
+# 4 classes as specified in paper (Section III-B)
+nc: 4
 names:
   0: Handgun
   1: Knife
   2: Rifle
   3: Shotgun
-
-path: dataset
-train: train/images
-val: valid/images
-test: test/images
